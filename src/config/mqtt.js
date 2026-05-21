@@ -1,67 +1,53 @@
-/**
- * ==========================================
- * CẤU HÌNH KẾT NỐI MQTT BROKER
- * ==========================================
- * Kết nối tới Aedes broker (embedded) để giao tiếp với ESP32.
- */
 
 const mqtt = require('mqtt');
 
-const MQTT_PORT = parseInt(process.env.MQTT_PORT, 10) || 1883;
-const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL || `mqtt://localhost:${MQTT_PORT}`;
-const TOPIC_PREFIX = process.env.MQTT_TOPIC_PREFIX || 'hutech_lms';
+const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL;
+const TOPIC_PREFIX = process.env.MQTT_TOPIC_PREFIX;
+const MQTT_INTERNAL_USERNAME = 'internal_broker';
+const MQTT_INTERNAL_PASSWORD = 'internal_broker_secret_2024';
 
-// Định nghĩa các topics
 const TOPICS = {
-    SCAN: `${TOPIC_PREFIX}/attendance/scan`,       // ESP32 gửi UID thẻ lên
-    RESULT: `${TOPIC_PREFIX}/attendance/result`,     // Server trả kết quả về ESP32
-    STATUS: `${TOPIC_PREFIX}/device/status`,         // Trạng thái thiết bị
+    SCAN: `${TOPIC_PREFIX}/attendance/scan`,
+    RESULT: `${TOPIC_PREFIX}/attendance/result`,
+    STATUS: `${TOPIC_PREFIX}/device/status`,
 };
 
 let client = null;
 
-/**
- * Khởi tạo kết nối MQTT
- * @param {Function} onMessageCallback - Hàm xử lý khi nhận message
- * @returns {Object} MQTT client
- */
 const connect = (onMessageCallback) => {
-    client = mqtt.connect(MQTT_BROKER_URL);
+    client = mqtt.connect(MQTT_BROKER_URL, {
+        username: MQTT_INTERNAL_USERNAME,
+        password: MQTT_INTERNAL_PASSWORD,
+    });
 
     client.on('connect', () => {
-        console.log('✅ Đã kết nối tới MQTT Broker!');
+        console.log('[MQTT] Connected to MQTT Broker successfully.');
 
-        // Đăng ký các topic cần lắng nghe
         client.subscribe(TOPICS.SCAN, (err) => {
-            if (!err) console.log(`🎧 Đang lắng nghe thiết bị tại: ${TOPICS.SCAN}`);
+            if (!err) console.log(`[MQTT] Listening for devices on topic: ${TOPICS.SCAN}`);
         });
 
         client.subscribe(TOPICS.STATUS, (err) => {
-            if (!err) console.log(`🎧 Đang lắng nghe trạng thái tại: ${TOPICS.STATUS}`);
+            if (!err) console.log(`[MQTT] Listening for device status on topic: ${TOPICS.STATUS}`);
         });
     });
 
     client.on('message', onMessageCallback);
 
     client.on('error', (err) => {
-        console.error('❌ Lỗi MQTT:', err.message);
+        console.error('[MQTT] Error:', err.message);
     });
 
     client.on('reconnect', () => {
-        console.log('🔄 Đang kết nối lại MQTT...');
+        console.log('[MQTT] Reconnecting...');
     });
 
     return client;
 };
 
-/**
- * Gửi message tới một topic
- * @param {string} topic - Topic đích
- * @param {Object|string} payload - Dữ liệu gửi đi
- */
 const publish = (topic, payload) => {
     if (!client || !client.connected) {
-        console.error('❌ MQTT chưa kết nối, không thể gửi message!');
+        console.error('[MQTT] Not connected, cannot publish message.');
         return;
     }
 
@@ -69,9 +55,6 @@ const publish = (topic, payload) => {
     client.publish(topic, message, { qos: 1 });
 };
 
-/**
- * Lấy MQTT client hiện tại
- */
 const getClient = () => client;
 
 module.exports = {

@@ -1,0 +1,26 @@
+meta {
+  name: Create Student
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/students
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "student_id": "2011060001",
+    "full_name": "Nguyen Van A",
+    "class": "20DTHX1",
+    "card_uid": "A1B2C3D4",
+    "email": "vana@hutech.edu.vn",
+    "phone": "0987654321"
+  }
+}

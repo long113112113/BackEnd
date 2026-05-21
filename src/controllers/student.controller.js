@@ -33,7 +33,7 @@ const StudentController = {
             if (!student) {
                 return res.status(404).json({
                     success: false,
-                    message: 'Không tìm thấy sinh viên',
+                    message: 'Student not found',
                 });
             }
             res.json({ success: true, data: student });
@@ -52,7 +52,7 @@ const StudentController = {
             if (!student_id || !full_name) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Mã sinh viên và họ tên là bắt buộc',
+                    message: 'Student ID and full name are required',
                 });
             }
 
@@ -65,7 +65,7 @@ const StudentController = {
             if (err.code === '23505') { // Unique violation
                 return res.status(409).json({
                     success: false,
-                    message: 'Mã sinh viên hoặc UID thẻ đã tồn tại',
+                    message: 'Student ID or card UID already exists',
                 });
             }
             next(err);
@@ -81,7 +81,7 @@ const StudentController = {
             if (!student) {
                 return res.status(404).json({
                     success: false,
-                    message: 'Không tìm thấy sinh viên',
+                    message: 'Student not found',
                 });
             }
             res.json({ success: true, data: student });
@@ -99,10 +99,10 @@ const StudentController = {
             if (!student) {
                 return res.status(404).json({
                     success: false,
-                    message: 'Không tìm thấy sinh viên',
+                    message: 'Student not found',
                 });
             }
-            res.json({ success: true, message: 'Đã xoá sinh viên' });
+            res.json({ success: true, message: 'Student deleted successfully' });
         } catch (err) {
             next(err);
         }

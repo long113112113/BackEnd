@@ -1,0 +1,15 @@
+meta {
+  name: Delete Unknown Card
+  type: http
+  seq: 2
+}
+
+delete {
+  url: {{baseUrl}}/api/unknown-cards/A1B2C3D4
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}

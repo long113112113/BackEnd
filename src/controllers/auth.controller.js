@@ -1,19 +1,11 @@
-/**
- * ==========================================
- * CONTROLLER: AUTH (XÁC THỰC)
- * ==========================================
- * Đăng nhập, đăng ký cho tài khoản admin.
- */
 
-const bcrypt = require('bcryptjs');
+const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
 const UserModel = require('../models/user.model');
 const config = require('../config');
 
 const AuthController = {
-    /**
-     * POST /api/auth/register - Đăng ký tài khoản
-     */
+
     register: async (req, res, next) => {
         try {
             const { username, email, password, full_name } = req.body;
@@ -21,21 +13,18 @@ const AuthController = {
             if (!username || !email || !password) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Username, email và password là bắt buộc',
+                    message: 'Username, email, and password are required',
                 });
             }
-
-            // Kiểm tra username/email đã tồn tại
             const existingUser = await UserModel.findByUsername(username);
             if (existingUser) {
                 return res.status(409).json({
                     success: false,
-                    message: 'Username đã tồn tại',
+                    message: 'Username already exists',
                 });
             }
 
-            // Hash password
-            const hashedPassword = await bcrypt.hash(password, 12);
+            const hashedPassword = await argon2.hash(password);
 
             const user = await UserModel.create({
                 username,
@@ -44,7 +33,6 @@ const AuthController = {
                 full_name,
             });
 
-            // Tạo JWT token
             const token = jwt.sign(
                 { id: user.id, username: user.username, role: user.role },
                 config.jwt.secret,
@@ -59,10 +47,6 @@ const AuthController = {
             next(err);
         }
     },
-
-    /**
-     * POST /api/auth/login - Đăng nhập
-     */
     login: async (req, res, next) => {
         try {
             const { username, password } = req.body;
@@ -70,25 +54,23 @@ const AuthController = {
             if (!username || !password) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Username và password là bắt buộc',
+                    message: 'Username and password are required',
                 });
             }
 
-            // Tìm user
             const user = await UserModel.findByUsername(username);
             if (!user) {
                 return res.status(401).json({
                     success: false,
-                    message: 'Sai username hoặc password',
+                    message: 'Invalid username or password',
                 });
             }
 
-            // So sánh password
-            const isMatch = await bcrypt.compare(password, user.password);
+            const isMatch = await argon2.verify(user.password, password);
             if (!isMatch) {
                 return res.status(401).json({
                     success: false,
-                    message: 'Sai username hoặc password',
+                    message: 'Invalid username or password',
                 });
             }
 
@@ -126,7 +108,7 @@ const AuthController = {
             if (!user) {
                 return res.status(404).json({
                     success: false,
-                    message: 'User không tồn tại',
+                    message: 'User not found',
                 });
             }
 

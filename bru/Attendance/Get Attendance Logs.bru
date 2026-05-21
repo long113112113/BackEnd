@@ -1,0 +1,19 @@
+meta {
+  name: Get Attendance Logs
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/attendance?date=2026-05-20
+  body: none
+  auth: bearer
+}
+
+params:query {
+  date: 2026-05-20
+}
+
+auth:bearer {
+  token: {{token}}
+}

@@ -1,37 +1,33 @@
-/**
- * ==========================================
- * SERVICE: MQTT HANDLER
- * ==========================================
- * Xử lý logic khi nhận message từ ESP32 qua MQTT.
- * Đây là "bộ não" xử lý điểm danh tự động.
- */
-
 const StudentModel = require('../models/student.model');
 const AttendanceModel = require('../models/attendance.model');
 const UnknownCardModel = require('../models/unknownCard.model');
 const mqttConfig = require('../config/mqtt');
 
-/**
- * Xử lý khi ESP32 gửi UID thẻ lên
- * @param {string} topic - Topic nhận message
- * @param {Buffer} message - Nội dung message
- */
+const DEVICE_SECRET = process.env.DEVICE_SECRET || 'pskhutech2024iot';
+
 const handleMqttMessage = async (topic, message) => {
+    let payload = null;
+
     if (topic === mqttConfig.TOPICS.SCAN) {
         try {
-            const payload = JSON.parse(message.toString());
+            payload = JSON.parse(message.toString());
             const card_uid = payload.card_uid;
             const device_id = payload.device_id || 'ESP32-01';
+            const secret = payload.secret;
 
-            console.log(`\n💳 [NHẬN THẺ] card_uid: ${card_uid} | device: ${device_id}`);
+            if (secret !== DEVICE_SECRET) {
+                console.log(`[MQTT] Invalid device secret from device_id=${device_id}`);
+                return;
+            }
 
-            // 1. Tìm sinh viên theo UID thẻ
+            console.log(`\n[MQTT] Card received: card_uid = ${card_uid} | device = ${device_id}`);
+
             const student = await StudentModel.findByCardUID(card_uid);
 
             if (!student) {
-                console.log('🔴 Thẻ lạ — lưu vào unknown_cards');
+                console.log('[MQTT] Unknown card - Saving to unknown_cards');
                 await UnknownCardModel.upsert(card_uid, device_id);
-                mqttConfig.publish(mqttConfig.TOPICS.RESULT, {
+                mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, {
                     status: 'unknown',
                     card_uid,
                     device_id,
@@ -40,11 +36,10 @@ const handleMqttMessage = async (topic, message) => {
                 return;
             }
 
-            // 2. Kiểm tra đã điểm danh hôm nay chưa
             const alreadyChecked = await AttendanceModel.hasCheckedInToday(student.id);
             if (alreadyChecked) {
-                console.log(`🟡 ${student.full_name} đã điểm danh rồi!`);
-                mqttConfig.publish(mqttConfig.TOPICS.RESULT, {
+                console.log(`[MQTT] ${student.full_name} has already checked in today.`);
+                mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, {
                     status: 'duplicate',
                     name: student.full_name,
                     mssv: student.student_id,
@@ -55,7 +50,6 @@ const handleMqttMessage = async (topic, message) => {
                 return;
             }
 
-            // 3. Ghi nhận điểm danh
             await AttendanceModel.create({
                 student_id: student.id,
                 card_uid: card_uid,
@@ -63,10 +57,9 @@ const handleMqttMessage = async (topic, message) => {
                 status: 'present',
             });
 
-            console.log(`🟢 Điểm danh thành công: ${student.full_name} (${student.student_id})`);
+            console.log(`[MQTT] Attendance successful: ${student.full_name} (${student.student_id})`);
 
-            // 4. Trả kết quả về ESP32
-            mqttConfig.publish(mqttConfig.TOPICS.RESULT, {
+            mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, {
                 status: 'success',
                 name: student.full_name,
                 mssv: student.student_id,
@@ -75,18 +68,20 @@ const handleMqttMessage = async (topic, message) => {
                 device_id,
             });
         } catch (err) {
-            console.error('❌ Lỗi xử lý điểm danh:', err.message);
-            mqttConfig.publish(mqttConfig.TOPICS.RESULT, {
-                status: 'error',
-                message: 'Server Error',
-            });
+            console.error('[MQTT] Attendance processing failed:', err.message);
+            const device_id = payload?.device_id;
+            if (device_id) {
+                mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, {
+                    status: 'error',
+                    message: 'Server Error',
+                });
+            }
         }
     }
 
-    // Xử lý topic trạng thái thiết bị
     if (topic === mqttConfig.TOPICS.STATUS) {
         const data = message.toString();
-        console.log(`📡 [THIẾT BỊ] Trạng thái: ${data}`);
+        console.log(`[MQTT] Device status: ${data}`);
     }
 };
 

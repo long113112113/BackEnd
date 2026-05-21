@@ -1,25 +1,16 @@
-/**
- * ==========================================
- * MODEL: ATTENDANCE (ĐIỂM DANH)
- * ==========================================
- * Tương tác với bảng attendance_records trong database.
- */
 
 const db = require('../config/db');
 
 const AttendanceModel = {
-    /**
-     * Tạo bảng attendance_records nếu chưa tồn tại
-     */
     createTable: async () => {
         const sql = `
             CREATE TABLE IF NOT EXISTS attendance_records (
                 id SERIAL PRIMARY KEY,
                 student_id INTEGER REFERENCES students(id),
-                card_uid VARCHAR(50) NOT NULL,              -- UID thẻ đã quẹt
+                card_uid VARCHAR(50) NOT NULL,             
                 check_in_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                device_id VARCHAR(50),                      -- Thiết bị ESP32 nào
-                status VARCHAR(20) DEFAULT 'present',       -- present, late, absent
+                device_id VARCHAR(50),                  
+                status VARCHAR(20) DEFAULT 'present',       
                 note TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -30,12 +21,7 @@ const AttendanceModel = {
                 ON attendance_records(check_in_time);
         `;
         await db.query(sql);
-        console.log('📋 Bảng attendance_records đã sẵn sàng');
     },
-
-    /**
-     * Ghi nhận điểm danh
-     */
     create: async ({ student_id, card_uid, device_id, status }) => {
         const result = await db.query(
             `INSERT INTO attendance_records (student_id, card_uid, device_id, status)
@@ -45,10 +31,6 @@ const AttendanceModel = {
         );
         return result.rows[0];
     },
-
-    /**
-     * Lấy lịch sử điểm danh theo ngày
-     */
     findByDate: async (date) => {
         const result = await db.query(
             `SELECT ar.*, s.full_name, s.student_id as mssv, s.class
@@ -61,9 +43,6 @@ const AttendanceModel = {
         return result.rows;
     },
 
-    /**
-     * Lấy lịch sử điểm danh của một sinh viên
-     */
     findByStudentId: async (studentId) => {
         const result = await db.query(
             `SELECT * FROM attendance_records 
@@ -74,9 +53,6 @@ const AttendanceModel = {
         return result.rows;
     },
 
-    /**
-     * Kiểm tra sinh viên đã điểm danh hôm nay chưa
-     */
     hasCheckedInToday: async (studentId) => {
         const result = await db.query(
             `SELECT * FROM attendance_records 
@@ -86,10 +62,6 @@ const AttendanceModel = {
         );
         return result.rows.length > 0;
     },
-
-    /**
-     * Thống kê điểm danh
-     */
     getStats: async () => {
         const result = await db.query(`
             SELECT 

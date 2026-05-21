@@ -1,10 +1,3 @@
-/**
- * ==========================================
- * KHỞI TẠO DATABASE
- * ==========================================
- * Tạo tất cả các bảng cần thiết khi server start.
- */
-
 const StudentModel = require('../models/student.model');
 const AttendanceModel = require('../models/attendance.model');
 const UserModel = require('../models/user.model');
@@ -13,11 +6,11 @@ const db = require('../config/db');
 
 const initDatabase = async () => {
     try {
-        console.log('\n🔧 Đang khởi tạo Database...');
+        console.log('\n[Database] Initializing database...');
 
         const connected = await db.testConnection();
         if (!connected) {
-            throw new Error('Không thể kết nối tới Database');
+            throw new Error('Cant connect to database');
         }
 
         await UserModel.createTable();
@@ -25,9 +18,9 @@ const initDatabase = async () => {
         await AttendanceModel.createTable();
         await UnknownCardModel.createTable();
 
-        console.log('✅ Database đã sẵn sàng!\n');
+        console.log('[Database] Database is ready.\n');
     } catch (err) {
-        console.error('❌ Lỗi khởi tạo Database:', err.message);
+        console.error('[Database] Database initialization failed:', err.message);
         process.exit(1);
     }
 };

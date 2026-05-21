@@ -1,0 +1,25 @@
+meta {
+  name: Update Student
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/students/1
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "full_name": "Nguyen Van A Updated",
+    "class": "20DTHX2",
+    "card_uid": "A1B2C3D4",
+    "email": "vanaupdated@hutech.edu.vn",
+    "phone": "0987654322"
+  }
+}

@@ -13,7 +13,7 @@ const UnknownCardModel = {
             );
         `;
         await db.query(sql);
-        console.log('📋 Bảng unknown_cards đã sẵn sàng');
+        console.log('[Database] Unknown cards table is ready.');
     },
 
     upsert: async (cardUID, deviceId) => {

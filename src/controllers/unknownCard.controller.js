@@ -14,9 +14,9 @@ const UnknownCardController = {
         try {
             const card = await UnknownCardModel.delete(req.params.cardUid);
             if (!card) {
-                return res.status(404).json({ success: false, message: 'Khong tim thay' });
+                return res.status(404).json({ success: false, message: 'Card not found' });
             }
-            res.json({ success: true, message: 'Da xoa' });
+            res.json({ success: true, message: 'Card deleted successfully' });
         } catch (err) {
             next(err);
         }
