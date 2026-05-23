@@ -55,9 +55,10 @@ const AttendanceModel = {
 
     hasCheckedInToday: async (studentId) => {
         const result = await db.query(
-            `SELECT * FROM attendance_records 
+            `SELECT 1 FROM attendance_records 
              WHERE student_id = $1 
-             AND DATE(check_in_time) = CURRENT_DATE`,
+             AND DATE(check_in_time) = CURRENT_DATE
+             LIMIT 1`,
             [studentId]
         );
         return result.rows.length > 0;

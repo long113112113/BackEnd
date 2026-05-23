@@ -8,7 +8,7 @@ const setTokenCookie = (res, token) => {
     res.cookie('token', token, {
         httpOnly: true,
         secure: config.nodeEnv === 'production',
-        sameSite: 'lax',
+        sameSite: 'strict',
         path: '/',
         maxAge: config.jwt.maxAgeMs,
     });
@@ -66,7 +66,7 @@ const AuthController = {
             res.clearCookie('token', {
                 httpOnly: true,
                 secure: config.nodeEnv === 'production',
-                sameSite: 'lax',
+                sameSite: 'strict',
                 path: '/',
             });
             res.json({ success: true, message: 'Logged out successfully' });

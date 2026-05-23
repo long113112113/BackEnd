@@ -51,6 +51,15 @@ const UserModel = {
         );
         return result.rows;
     },
+
+    findById: async (id) => {
+        const result = await db.query(
+            `SELECT id, username, email, full_name, role, is_active
+             FROM users WHERE id = $1`,
+            [id]
+        );
+        return result.rows[0] || null;
+    },
 };
 
 module.exports = UserModel;

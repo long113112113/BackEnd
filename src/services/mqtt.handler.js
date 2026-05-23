@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const StudentModel = require('../models/student.model');
 const AttendanceModel = require('../models/attendance.model');
 const UnknownCardModel = require('../models/unknownCard.model');
@@ -79,7 +80,10 @@ const handleMqttMessage = async (topic, message) => {
             const msgToSign = device_id + card_uid + nonce + seq;
             const expectedHmac = computeHmac(device.hmac_key, msgToSign);
 
-            if (receivedHmac !== expectedHmac) {
+            if (!crypto.timingSafeEqual(
+                Buffer.from(receivedHmac, 'hex'),
+                Buffer.from(expectedHmac, 'hex')
+            )) {
                 console.log(`[MQTT] HMAC mismatch device_id=${device_id}`);
                 const errPayload = encryptError(aesKey, device_id, 'error', 'HMAC verification failed', { card_uid });
                 mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, errPayload);
