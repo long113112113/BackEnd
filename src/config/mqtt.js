@@ -1,10 +1,19 @@
 
 const mqtt = require('mqtt');
 
-const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL;
-const TOPIC_PREFIX = process.env.MQTT_TOPIC_PREFIX;
-const MQTT_INTERNAL_USERNAME = 'internal_broker';
-const MQTT_INTERNAL_PASSWORD = 'internal_broker_secret_2024';
+const requiredEnv = (name) => {
+    const val = process.env[name];
+    if (!val) {
+        console.error(`[MQTT] Missing required env variable: ${name}. Please set it in .env`);
+        process.exit(1);
+    }
+    return val;
+};
+
+const MQTT_BROKER_URL = requiredEnv('MQTT_BROKER_URL');
+const TOPIC_PREFIX = requiredEnv('MQTT_TOPIC_PREFIX');
+const MQTT_INTERNAL_USERNAME = requiredEnv('MQTT_INTERNAL_USERNAME');
+const MQTT_INTERNAL_PASSWORD = requiredEnv('MQTT_INTERNAL_PASSWORD');
 
 const TOPICS = {
     SCAN: `${TOPIC_PREFIX}/attendance/scan`,

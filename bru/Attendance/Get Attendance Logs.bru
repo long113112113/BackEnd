@@ -7,13 +7,13 @@ meta {
 get {
   url: {{baseUrl}}/api/attendance?date=2026-05-20
   body: none
-  auth: bearer
+  auth: none
 }
 
 params:query {
   date: 2026-05-20
 }
 
-auth:bearer {
-  token: {{token}}
+headers {
+  Cookie: token={{token}}
 }

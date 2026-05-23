@@ -1,12 +1,21 @@
 const os = require('os');
 const net = require('net');
 
+const requiredEnv = (name) => {
+    const val = process.env[name];
+    if (!val) {
+        console.error(`[MQTT] Missing required env variable: ${name}. Please set it in .env`);
+        process.exit(1);
+    }
+    return val;
+};
+
 const MQTT_PORT = parseInt(process.env.MQTT_PORT, 10);
-const MQTT_USERNAME = process.env.MQTT_USERNAME || 'esp32_device';
-const MQTT_PASSWORD = process.env.MQTT_PASSWORD || 'esp32_secret_2024';
-const MQTT_INTERNAL_USERNAME = 'internal_broker';
-const MQTT_INTERNAL_PASSWORD = 'internal_broker_secret_2024';
-const TOPIC_PREFIX = process.env.MQTT_TOPIC_PREFIX || 'hutech_lms';
+const MQTT_USERNAME = requiredEnv('MQTT_USERNAME');
+const MQTT_PASSWORD = requiredEnv('MQTT_PASSWORD');
+const MQTT_INTERNAL_USERNAME = requiredEnv('MQTT_INTERNAL_USERNAME');
+const MQTT_INTERNAL_PASSWORD = requiredEnv('MQTT_INTERNAL_PASSWORD');
+const TOPIC_PREFIX = requiredEnv('MQTT_TOPIC_PREFIX');
 
 let aedesInstance = null;
 let server = null;
@@ -36,6 +45,18 @@ const start = async () => {
                 return callback(new Error('ESP32 cannot publish to result topic'));
             }
             callback(null);
+        },
+        authorizeSubscribe: (client, sub, callback) => {
+            if (!client || !client.id) {
+                return callback(new Error('Unauthorized subscribe'));
+            }
+            if (client.isEsp32) {
+                const ownTopic = `${TOPIC_PREFIX}/attendance/result/${client.id}`;
+                if (sub.topic !== ownTopic) {
+                    return callback(new Error(`Subscribe denied: ESP32 can only subscribe to ${ownTopic}`));
+                }
+            }
+            callback(null, sub);
         },
     });
 

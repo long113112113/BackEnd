@@ -10,6 +10,10 @@ post {
   auth: none
 }
 
+headers {
+  Content-Type: application/json
+}
+
 body:json {
   {
     "username": "admin",
@@ -19,8 +23,12 @@ body:json {
 
 script:post-response {
   if (res.status === 200) {
-    if (res.body && res.body.data && res.body.data.token) {
-      bru.setEnvVar("token", res.body.data.token);
+    const cookie = res.headers["set-cookie"];
+    if (cookie) {
+      const match = (Array.isArray(cookie) ? cookie[0] : cookie).match(/token=([^;]+)/);
+      if (match) {
+        bru.setEnvVar("token", match[1]);
+      }
     }
   }
 }

@@ -7,11 +7,12 @@ meta {
 put {
   url: {{baseUrl}}/api/students/1
   body: json
-  auth: bearer
+  auth: none
 }
 
-auth:bearer {
-  token: {{token}}
+headers {
+  Cookie: token={{token}}
+  Content-Type: application/json
 }
 
 body:json {

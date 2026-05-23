@@ -4,59 +4,21 @@ const jwt = require('jsonwebtoken');
 const UserModel = require('../models/user.model');
 const config = require('../config');
 
+const setTokenCookie = (res, token) => {
+    res.cookie('token', token, {
+        httpOnly: true,
+        secure: config.nodeEnv === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: config.jwt.maxAgeMs,
+    });
+};
+
 const AuthController = {
 
-    register: async (req, res, next) => {
-        try {
-            const { username, email, password, full_name } = req.body;
-
-            if (!username || !email || !password) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Username, email, and password are required',
-                });
-            }
-            const existingUser = await UserModel.findByUsername(username);
-            if (existingUser) {
-                return res.status(409).json({
-                    success: false,
-                    message: 'Username already exists',
-                });
-            }
-
-            const hashedPassword = await argon2.hash(password);
-
-            const user = await UserModel.create({
-                username,
-                email,
-                password: hashedPassword,
-                full_name,
-            });
-
-            const token = jwt.sign(
-                { id: user.id, username: user.username, role: user.role },
-                config.jwt.secret,
-                { expiresIn: config.jwt.expiresIn }
-            );
-
-            res.status(201).json({
-                success: true,
-                data: { user, token },
-            });
-        } catch (err) {
-            next(err);
-        }
-    },
     login: async (req, res, next) => {
         try {
             const { username, password } = req.body;
-
-            if (!username || !password) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Username and password are required',
-                });
-            }
 
             const user = await UserModel.findByUsername(username);
             if (!user) {
@@ -74,12 +36,13 @@ const AuthController = {
                 });
             }
 
-            // Tạo JWT token
             const token = jwt.sign(
                 { id: user.id, username: user.username, role: user.role },
                 config.jwt.secret,
                 { expiresIn: config.jwt.expiresIn }
             );
+
+            setTokenCookie(res, token);
 
             res.json({
                 success: true,
@@ -91,7 +54,6 @@ const AuthController = {
                         full_name: user.full_name,
                         role: user.role,
                     },
-                    token,
                 },
             });
         } catch (err) {
@@ -99,9 +61,20 @@ const AuthController = {
         }
     },
 
-    /**
-     * GET /api/auth/me - Lấy thông tin user hiện tại
-     */
+    logout: async (req, res, next) => {
+        try {
+            res.clearCookie('token', {
+                httpOnly: true,
+                secure: config.nodeEnv === 'production',
+                sameSite: 'lax',
+                path: '/',
+            });
+            res.json({ success: true, message: 'Logged out successfully' });
+        } catch (err) {
+            next(err);
+        }
+    },
+
     getMe: async (req, res, next) => {
         try {
             const user = await UserModel.findByUsername(req.user.username);

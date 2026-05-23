@@ -6,6 +6,10 @@
  */
 
 const StudentModel = require('../models/student.model');
+const pick = require('../utils/pick');
+
+const STUDENT_FIELDS = ['student_id', 'full_name', 'class', 'card_uid', 'email', 'phone'];
+const STUDENT_UPDATE_FIELDS = ['full_name', 'class', 'card_uid', 'email', 'phone'];
 
 const StudentController = {
     /**
@@ -47,22 +51,20 @@ const StudentController = {
      */
     create: async (req, res, next) => {
         try {
-            const { student_id, full_name, class: className, card_uid, email, phone } = req.body;
-
-            if (!student_id || !full_name) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Student ID and full name are required',
-                });
-            }
+            const data = pick(req.body, STUDENT_FIELDS);
 
             const student = await StudentModel.create({
-                student_id, full_name, class: className, card_uid, email, phone,
+                student_id: data.student_id,
+                full_name: data.full_name,
+                class: data.class,
+                card_uid: data.card_uid,
+                email: data.email,
+                phone: data.phone,
             });
 
             res.status(201).json({ success: true, data: student });
         } catch (err) {
-            if (err.code === '23505') { // Unique violation
+            if (err.code === '23505') {
                 return res.status(409).json({
                     success: false,
                     message: 'Student ID or card UID already exists',
@@ -77,7 +79,8 @@ const StudentController = {
      */
     update: async (req, res, next) => {
         try {
-            const student = await StudentModel.update(req.params.id, req.body);
+            const data = pick(req.body, STUDENT_UPDATE_FIELDS);
+            const student = await StudentModel.update(req.params.id, data);
             if (!student) {
                 return res.status(404).json({
                     success: false,

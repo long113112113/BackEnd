@@ -7,9 +7,10 @@ meta {
 get {
   url: {{baseUrl}}/api/attendance/stats
   body: none
-  auth: bearer
+  auth: none
 }
 
-auth:bearer {
-  token: {{token}}
+headers {
+  Cookie: token={{token}}
 }
+

@@ -45,7 +45,10 @@ const UserModel = {
     },
 
     findAll: async () => {
-        const result = await db.query('SELECT * FROM users');
+        const result = await db.query(
+            `SELECT id, username, email, full_name, role, is_active, created_at, updated_at
+             FROM users`
+        );
         return result.rows;
     },
 };

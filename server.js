@@ -3,6 +3,8 @@ require('dotenv').config();
 const os = require('os');
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const config = require('./src/config');
 const mqttConfig = require('./src/config/mqtt');
@@ -12,12 +14,29 @@ const { errorHandler, notFoundHandler } = require('./src/middlewares/error.middl
 const { handleMqttMessage } = require('./src/services/mqtt.handler');
 const initDatabase = require('./src/utils/initDb');
 const seedAdmin = require('./src/utils/seedAdmin');
+const seedDevices = require('./src/utils/seedDevices');
 const app = express();
 
-app.use(cors());
-app.use(morgan('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(helmet());
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || config.clientOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+}));
+app.use(cookieParser());
+if (config.nodeEnv === 'development') {
+    app.use(morgan('dev'));
+} else {
+    morgan.token('path', (req) => req.path);
+    app.use(morgan(':method :path :status :response-time ms'));
+}
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 app.use('/api', routes);
 
@@ -30,6 +49,7 @@ app.get('/', (req, res) => {
             auth: '/api/auth',
             students: '/api/students',
             attendance: '/api/attendance',
+            'device-keys': '/api/device-keys',
         },
     });
 });
@@ -40,6 +60,7 @@ const startServer = async () => {
     try {
         await initDatabase();
         await seedAdmin();
+        await seedDevices();
         await aedesConfig.start();
         mqttConfig.connect(handleMqttMessage);
 

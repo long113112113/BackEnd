@@ -2,6 +2,7 @@ const StudentModel = require('../models/student.model');
 const AttendanceModel = require('../models/attendance.model');
 const UserModel = require('../models/user.model');
 const UnknownCardModel = require('../models/unknownCard.model');
+const DeviceKeyModel = require('../models/deviceKey.model');
 const db = require('../config/db');
 
 const initDatabase = async () => {
@@ -17,6 +18,7 @@ const initDatabase = async () => {
         await StudentModel.createTable();
         await AttendanceModel.createTable();
         await UnknownCardModel.createTable();
+        await DeviceKeyModel.createTable();
 
         console.log('[Database] Database is ready.\n');
     } catch (err) {

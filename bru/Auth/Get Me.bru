@@ -7,9 +7,9 @@ meta {
 get {
   url: {{baseUrl}}/api/auth/me
   body: none
-  auth: bearer
+  auth: none
 }
 
-auth:bearer {
-  token: {{token}}
+headers {
+  Cookie: token={{token}}
 }

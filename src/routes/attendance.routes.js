@@ -1,16 +1,12 @@
-/**
- * ==========================================
- * ROUTES: ATTENDANCE
- * ==========================================
- */
-
 const express = require('express');
 const router = express.Router();
 const AttendanceController = require('../controllers/attendance.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
+const validate = require('../middlewares/validate.middleware');
+const { getByDate, getByStudent } = require('../validations/attendance.validation');
 
-router.get('/', authMiddleware, AttendanceController.getByDate);
+router.get('/', authMiddleware, validate(getByDate), AttendanceController.getByDate);
 router.get('/stats', authMiddleware, AttendanceController.getStats);
-router.get('/student/:id', authMiddleware, AttendanceController.getByStudent);
+router.get('/student/:id', authMiddleware, validate(getByStudent), AttendanceController.getByStudent);
 
 module.exports = router;
