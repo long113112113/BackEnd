@@ -1,5 +1,8 @@
 const DeviceKeyModel = require('../models/deviceKey.model');
 
+const DEVICE_ID_REGEX = /^[a-zA-Z0-9_-]{1,50}$/;
+const HMAC_KEY_REGEX = /^[a-fA-F0-9]{64}$/;
+
 const requireAdmin = (req, res) => {
     if (req.user.role !== 'admin') {
         res.status(403).json({
@@ -48,6 +51,11 @@ const DeviceKeyController = {
                 const colonIdx = entry.indexOf(':');
                 const device_id = entry.slice(0, colonIdx).trim();
                 const hmac_key = entry.slice(colonIdx + 1).trim();
+
+                if (!device_id || !hmac_key || !DEVICE_ID_REGEX.test(device_id) || !HMAC_KEY_REGEX.test(hmac_key)) {
+                    results.errors.push({ entry, reason: 'Invalid format' });
+                    continue;
+                }
 
                 try {
                     await DeviceKeyModel.upsert({ device_id, hmac_key });

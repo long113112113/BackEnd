@@ -31,5 +31,10 @@
     "morgan": "^1.10.0",
     "mqtt": "^5.15.1",
     "pg": "^8.16.0"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^10.4.0",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.7"
   }
 }

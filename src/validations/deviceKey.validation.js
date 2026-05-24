@@ -18,8 +18,7 @@ exports.createBatch = [
     body('keys')
         .trim()
         .notEmpty().withMessage('keys is required')
-        .isString().withMessage('keys must be a string'),
-    body('keys')
+        .isString().withMessage('keys must be a string')
         .custom((value) => {
             const entries = value.split(',').map(s => s.trim()).filter(Boolean);
             if (entries.length === 0) throw new Error('keys must contain at least one entry');
@@ -27,11 +26,6 @@ exports.createBatch = [
             for (const entry of entries) {
                 const colonIdx = entry.indexOf(':');
                 if (colonIdx === -1) throw new Error(`Invalid entry "${entry}": missing colon separator`);
-                const deviceId = entry.slice(0, colonIdx).trim();
-                const hmacKey = entry.slice(colonIdx + 1).trim();
-                if (!deviceId || !hmacKey) throw new Error(`Invalid entry "${entry}": empty device_id or hmac_key`);
-                if (!DEVICE_ID_REGEX.test(deviceId)) throw new Error(`Invalid device_id in entry "${entry}"`);
-                if (!HMAC_KEY_REGEX.test(hmacKey)) throw new Error(`Invalid hmac_key in entry "${entry}"`);
             }
             return true;
         }),

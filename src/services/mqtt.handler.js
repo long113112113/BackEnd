@@ -80,10 +80,10 @@ const handleMqttMessage = async (topic, message) => {
             const msgToSign = device_id + card_uid + nonce + seq;
             const expectedHmac = computeHmac(device.hmac_key, msgToSign);
 
-            if (!crypto.timingSafeEqual(
-                Buffer.from(receivedHmac, 'hex'),
-                Buffer.from(expectedHmac, 'hex')
-            )) {
+            const hash1 = crypto.createHash('sha256').update(Buffer.from(receivedHmac, 'hex')).digest();
+            const hash2 = crypto.createHash('sha256').update(Buffer.from(expectedHmac, 'hex')).digest();
+
+            if (!crypto.timingSafeEqual(hash1, hash2)) {
                 console.log(`[MQTT] HMAC mismatch device_id=${device_id}`);
                 const errPayload = encryptError(aesKey, device_id, 'error', 'HMAC verification failed', { card_uid });
                 mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, errPayload);
