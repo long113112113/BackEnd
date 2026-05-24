@@ -1,0 +1,4 @@
+## 2024-05-24 - crypto.timingSafeEqual Vulnerability
+**Vulnerability:** `crypto.timingSafeEqual` in `src/services/mqtt.handler.js` crashes the server when the provided HMACs have different lengths, leading to a Denial of Service (DoS) vulnerability.
+**Learning:** `crypto.timingSafeEqual` requires both input buffers to be of the exact same length. If an attacker provides a `receivedHmac` string that isn't exactly the length of `expectedHmac` (e.g. 64 characters for sha256), the buffer length will mismatch and `timingSafeEqual` throws an unhandled exception, bringing down the entire node process.
+**Prevention:** Ensure the lengths of both buffers are identical before calling `crypto.timingSafeEqual`. If the lengths do not match, return false immediately. This can also be addressed by wrapping `crypto.timingSafeEqual` in a helper function or using `crypto.timingSafeEqual` safely by checking length first or using a fixed-length comparison mechanism.
