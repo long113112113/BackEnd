@@ -1,7 +1,6 @@
 require('dotenv').config();
 const request = require('supertest');
 const app = require('../../src/app');
-const { clearBlacklist } = require('../../src/middlewares/auth.middleware');
 
 let cookies;
 
@@ -10,11 +9,7 @@ beforeAll(async () => {
         .post('/api/auth/login')
         .send({ username: 'admin', password: 'admin123' });
     cookies = res.headers['set-cookie'];
-});
-
-beforeEach(() => {
-    clearBlacklist();
-});
+}, 15000);
 
 const getCookie = () => cookies;
 

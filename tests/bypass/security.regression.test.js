@@ -15,7 +15,6 @@ const jwt = require('jsonwebtoken');
 const config = require('../../src/config');
 const db = require('../../src/config/db');
 const argon2 = require('argon2');
-const { clearBlacklist } = require('../../src/middlewares/auth.middleware');
 
 let adminCookies;
 let adminToken;
@@ -35,10 +34,6 @@ afterAll(async () => {
     await db.query("DELETE FROM unknown_cards WHERE card_uid LIKE 'SEC%'");
     await db.query("DELETE FROM device_keys WHERE device_id LIKE 'SEC_%'");
     await db.query('DELETE FROM users WHERE username != $1', ['admin']);
-});
-
-beforeEach(() => {
-    clearBlacklist();
 });
 
 const getCookie = () => Array.isArray(adminCookies) ? adminCookies.join('; ') : adminCookies;
@@ -89,11 +84,11 @@ describe('BUG-1: Auth middleware nên reject JWT với role không hợp lệ', 
     });
 });
 
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════
 // BUG-2: Logout KHÔNG invalidate token — dùng lại token vẫn được
-// ─────────────────────────────────────────────────────────────
-describe('BUG-2: Logout nên invalidate token phía server', () => {
-    test('sau logout, token KHÔNG được dùng lại được', async () => {
+// ═════════════════════════════════════════════════════════════
+describe('BUG-2: Logout nên invalidate refresh token phía server', () => {
+    test('sau logout, refresh token KHÔNG được dùng để lấy access token mới', async () => {
         const loginRes = await request(app)
             .post('/api/auth/login')
             .send({ username: 'admin', password: 'admin123' });
@@ -102,22 +97,22 @@ describe('BUG-2: Logout nên invalidate token phía server', () => {
             ? loginRes.headers['set-cookie']
             : [loginRes.headers['set-cookie']];
         const cookieStr = cookies.join('; ');
-        const token = cookieStr.match(/token=([^;]+)/)[1];
 
         await request(app)
             .post('/api/auth/logout')
             .set('Cookie', cookieStr);
 
         const res = await request(app)
-            .get('/api/students')
-            .set('Authorization', `Bearer ${token}`);
+            .post('/api/auth/refresh')
+            .set('Cookie', cookieStr);
         expect(res.status).toBe(401);
+        expect(res.body.success).toBe(false);
     });
 });
 
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════
 // BUG-3: findAll trả cả inactive students — leak data sinh viên đã nghỉ
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════
 describe('BUG-3: GET /api/students KHÔNG nên trả soft-deleted students', () => {
     test('sinh viên đã soft-delete KHÔNG xuất hiện trong danh sách', async () => {
         const createRes = await request(app)

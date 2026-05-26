@@ -7,6 +7,8 @@
 
 const StudentModel = require('../models/student.model');
 const pick = require('../utils/pick');
+const clean = require('../utils/clean');
+const sanitizeInput = require('../utils/sanitize');
 
 const STUDENT_FIELDS = ['student_id', 'full_name', 'class', 'card_uid', 'email', 'phone'];
 const STUDENT_UPDATE_FIELDS = ['full_name', 'class', 'card_uid', 'email', 'phone'];
@@ -64,8 +66,8 @@ const StudentController = {
 
             const student = await StudentModel.create({
                 student_id: data.student_id,
-                full_name: data.full_name,
-                class: data.class,
+                full_name: sanitizeInput(data.full_name),
+                class: data.class ? sanitizeInput(data.class) : data.class,
                 card_uid: data.card_uid,
                 email: data.email,
                 phone: data.phone,
@@ -88,7 +90,10 @@ const StudentController = {
      */
     update: async (req, res, next) => {
         try {
-            const data = pick(req.body, STUDENT_UPDATE_FIELDS);
+            const raw = pick(req.body, STUDENT_UPDATE_FIELDS);
+            const data = clean(raw);
+            if (data.full_name) data.full_name = sanitizeInput(data.full_name);
+            if (data.class) data.class = sanitizeInput(data.class);
             const student = await StudentModel.update(req.params.id, data);
             if (!student) {
                 return res.status(404).json({

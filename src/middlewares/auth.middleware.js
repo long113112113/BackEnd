@@ -1,24 +1,8 @@
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
 const config = require('../config');
 const UserModel = require('../models/user.model');
 
 const VALID_ROLES = ['admin', 'user'];
-
-const tokenBlacklist = new Set();
-
-const addToBlacklist = (token) => {
-    tokenBlacklist.add(token);
-    try {
-        const decoded = jwt.decode(token);
-        if (decoded && decoded.exp) {
-            const ttl = (decoded.exp * 1000) - Date.now();
-            if (ttl > 0) setTimeout(() => tokenBlacklist.delete(token), ttl);
-        }
-    } catch {}
-};
-
-const isBlacklisted = (token) => tokenBlacklist.has(token);
 
 const authMiddleware = async (req, res, next) => {
     try {
@@ -29,13 +13,6 @@ const authMiddleware = async (req, res, next) => {
             return res.status(401).json({
                 success: false,
                 message: 'No authorization token provided. Please log in.',
-            });
-        }
-
-        if (isBlacklisted(token)) {
-            return res.status(401).json({
-                success: false,
-                message: 'Token has been revoked. Please log in again.',
             });
         }
 
@@ -84,8 +61,4 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
-const clearBlacklist = () => {
-    tokenBlacklist.clear();
-};
-
-module.exports = { authMiddleware, requireAdmin, addToBlacklist, clearBlacklist };
+module.exports = { authMiddleware, requireAdmin };

@@ -105,6 +105,28 @@ describe('GET /api/students/:id', () => {
             .set('Cookie', getCookie());
         expect(res.status).toBe(400);
     });
+
+    test('returns 404 for soft-deleted student', async () => {
+        const createRes = await request(app)
+            .post('/api/students')
+            .set('Cookie', getCookie())
+            .send({
+                student_id: 'SDELGET01',
+                full_name: 'Soft Delete Get',
+                card_uid: 'BB6000000001',
+            });
+        expect(createRes.status).toBe(201);
+        const id = createRes.body.data.id;
+
+        await request(app)
+            .delete(`/api/students/${id}`)
+            .set('Cookie', getCookie());
+
+        const res = await request(app)
+            .get(`/api/students/${id}`)
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(404);
+    });
 });
 
 describe('PUT /api/students/:id', () => {
@@ -150,6 +172,60 @@ describe('PUT /api/students/:id', () => {
             .delete(`/api/students/${id}`)
             .set('Cookie', getCookie());
     });
+
+    test('empty string in class does not overwrite existing value', async () => {
+        const createRes = await request(app)
+            .post('/api/students')
+            .set('Cookie', getCookie())
+            .send({
+                student_id: 'EMPTYCLS1',
+                full_name: 'Class Test',
+                class: '20DTHX1',
+                card_uid: 'BBC000000001',
+            });
+        expect(createRes.status).toBe(201);
+        const id = createRes.body.data.id;
+
+        const updateRes = await request(app)
+            .put(`/api/students/${id}`)
+            .set('Cookie', getCookie())
+            .send({ class: '' });
+        expect(updateRes.status).toBe(400);
+
+        const getRes = await request(app)
+            .get(`/api/students/${id}`)
+            .set('Cookie', getCookie());
+        expect(getRes.body.data.class).toBe('20DTHX1');
+
+        await request(app)
+            .delete(`/api/students/${id}`)
+            .set('Cookie', getCookie());
+    });
+
+    test('null sets field to null in database', async () => {
+        const createRes = await request(app)
+            .post('/api/students')
+            .set('Cookie', getCookie())
+            .send({
+                student_id: 'NULLFLD01',
+                full_name: 'Null Test',
+                class: '20DTHX1',
+                card_uid: 'BBD000000001',
+            });
+        expect(createRes.status).toBe(201);
+        const id = createRes.body.data.id;
+
+        const updateRes = await request(app)
+            .put(`/api/students/${id}`)
+            .set('Cookie', getCookie())
+            .send({ class: null });
+        expect(updateRes.status).toBe(200);
+        expect(updateRes.body.data.class).toBeNull();
+
+        await request(app)
+            .delete(`/api/students/${id}`)
+            .set('Cookie', getCookie());
+    });
 });
 
 describe('DELETE /api/students/:id', () => {
@@ -169,7 +245,7 @@ describe('DELETE /api/students/:id', () => {
 });
 
 describe('HACKER / PENTEST: Security & Robustness Checks', () => {
-    test('XSS Injection: Stores raw HTML/JS payload without crashing, indicating potential Stored XSS', async () => {
+    test('XSS Protection: HTML tags in full_name and class are stripped by sanitizer', async () => {
         const res = await request(app)
             .post('/api/students')
             .set('Cookie', getCookie())
@@ -180,7 +256,8 @@ describe('HACKER / PENTEST: Security & Robustness Checks', () => {
                 email: 'xss@attacker.com',
             });
         expect(res.status).toBe(201);
-        expect(res.body.data.full_name).toBe("<script>alert('XSS_ATTACK')</script>");
+        expect(res.body.data.full_name).toBe("alert('XSS_ATTACK')");
+        expect(res.body.data.class).toBe('');
     });
 
     test('HTTP Parameter Pollution: Rejects array parameters to prevent server crash', async () => {

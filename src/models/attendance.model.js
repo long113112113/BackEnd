@@ -72,6 +72,20 @@ const AttendanceModel = {
         );
         return result.rows.length > 0;
     },
+    createIfNotCheckedInToday: async ({ student_id, card_uid, device_id, status }) => {
+        const result = await db.query(
+            `INSERT INTO attendance_records (student_id, card_uid, device_id, status)
+             SELECT $1, $2, $3, $4
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM attendance_records
+                 WHERE student_id = $1 AND DATE(check_in_time) = CURRENT_DATE
+                 LIMIT 1
+             )
+             RETURNING *`,
+            [student_id, card_uid, device_id, status || 'present']
+        );
+        return result.rows.length > 0 ? result.rows[0] : null;
+    },
     getStats: async () => {
         const result = await db.query(`
             SELECT 

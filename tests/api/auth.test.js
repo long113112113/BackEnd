@@ -4,7 +4,6 @@ const app = require('../../src/app');
 const db = require('../../src/config/db');
 const argon2 = require('argon2');
 const UserModel = require('../../src/models/user.model');
-const { clearBlacklist } = require('../../src/middlewares/auth.middleware');
 
 let cookies;
 
@@ -24,10 +23,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
     await db.query('DELETE FROM users WHERE username = $1', ['testuser']);
-});
-
-beforeEach(() => {
-    clearBlacklist();
 });
 
 describe('POST /api/auth/login', () => {

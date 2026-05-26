@@ -173,8 +173,7 @@ describe('MQTT Message Handler - Edge Cases', () => {
         vi.spyOn(StudentModel, 'findByCardUID').mockResolvedValue({
             id: 99, student_id: 'NVS001', full_name: 'NVS Reset', class: '20DTHX1', card_uid: 'A1B2C3D4',
         });
-        vi.spyOn(AttendanceModel, 'hasCheckedInToday').mockResolvedValue(false);
-        vi.spyOn(AttendanceModel, 'create').mockResolvedValue(null);
+        vi.spyOn(AttendanceModel, 'createIfNotCheckedInToday').mockResolvedValue({ id: 99 });
 
         const nonce = 'z'.repeat(32);
         const card_uid = 'A1B2C3D4';

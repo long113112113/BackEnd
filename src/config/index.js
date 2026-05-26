@@ -20,5 +20,9 @@ module.exports = {
         secret: process.env.JWT_SECRET,
         expiresIn: process.env.JWT_EXPIRES_IN,
         maxAgeMs: parseExpiresInMs(process.env.JWT_EXPIRES_IN),
+        accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+        accessMaxAgeMs: parseExpiresInMs(process.env.JWT_ACCESS_EXPIRES_IN || '15m'),
+        refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+        refreshMaxAgeMs: parseExpiresInMs(process.env.JWT_REFRESH_EXPIRES_IN || '7d'),
     },
 };

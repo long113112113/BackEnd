@@ -52,6 +52,7 @@ exports.updateStudent = [
         .optional({ nullable: true })
         .isString().withMessage('Class name must be a string')
         .trim()
+        .notEmpty().withMessage('Class name cannot be empty')
         .isLength({ max: 50 }).withMessage('Class name must not exceed 50 characters'),
     body('card_uid')
         .optional({ nullable: true })

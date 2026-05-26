@@ -5,7 +5,6 @@ const db = require('../../src/config/db');
 const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
 const config = require('../../src/config');
-const { clearBlacklist } = require('../../src/middlewares/auth.middleware');
 
 let validToken;
 let disabledUserId;
@@ -41,10 +40,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
     await db.query('DELETE FROM users WHERE username IN ($1, $2)', ['disabled_user', 'normal_user_auth_test']);
-});
-
-beforeEach(() => {
-    clearBlacklist();
 });
 
 describe('Auth Middleware', () => {
@@ -195,4 +190,3 @@ describe('Auth Middleware', () => {
         expect(res.status).toBe(403);
     });
 });
-

@@ -66,6 +66,16 @@ describe('StudentModel.findById', () => {
         const found = await StudentModel.findById(999999);
         expect(found).toBeNull();
     });
+
+    test('returns null for soft-deleted student', async () => {
+        const created = await StudentModel.create({
+            student_id: 'SMTEST008',
+            full_name: 'Soft Delete Find',
+        });
+        await StudentModel.delete(created.id);
+        const found = await StudentModel.findById(created.id);
+        expect(found).toBeNull();
+    });
 });
 
 describe('StudentModel.update', () => {
@@ -84,6 +94,35 @@ describe('StudentModel.update', () => {
 
         expect(updated.full_name).toBe('After Update');
         expect(updated.class).toBe('20NEW');
+        expect(updated.card_uid).toBe('SMBBBB0000001');
+    });
+
+    test('sets field to null explicitly', async () => {
+        const created = await StudentModel.create({
+            student_id: 'SMTEST006',
+            full_name: 'Null Test',
+            class: '20NULL',
+        });
+
+        const updated = await StudentModel.update(created.id, { class: null });
+        expect(updated.class).toBeNull();
+    });
+
+    test('returns current row when data is empty', async () => {
+        const created = await StudentModel.create({
+            student_id: 'SMTEST007',
+            full_name: 'Empty Data',
+            card_uid: 'SMEEEE0000001',
+        });
+
+        const result = await StudentModel.update(created.id, {});
+        expect(result.id).toBe(created.id);
+        expect(result.full_name).toBe('Empty Data');
+    });
+
+    test('returns null for non-existent id', async () => {
+        const result = await StudentModel.update(999999, { full_name: 'Ghost' });
+        expect(result).toBeNull();
     });
 });
 
@@ -99,6 +138,6 @@ describe('StudentModel.delete', () => {
         expect(deleted.is_active).toBe(false);
 
         const refetched = await StudentModel.findById(created.id);
-        expect(refetched.is_active).toBe(false);
+        expect(refetched).toBeNull();
     });
 });

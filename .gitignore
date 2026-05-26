@@ -4,6 +4,9 @@ node_modules/
 # Environment
 .env
 
+# Agent instruction files
+AGENTS.md
+
 # Logs
 logs/
 *.log
@@ -16,3 +19,4 @@ Thumbs.db
 .vscode/
 .idea/
 TODO.md
+vul.md

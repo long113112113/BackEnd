@@ -132,8 +132,14 @@ const handleMqttMessage = async (topic, message) => {
                 return;
             }
 
-            const alreadyChecked = await AttendanceModel.hasCheckedInToday(student.id);
-            if (alreadyChecked) {
+            const record = await AttendanceModel.createIfNotCheckedInToday({
+                student_id: student.id,
+                card_uid: card_uid,
+                device_id: device_id,
+                status: 'present',
+            });
+
+            if (!record) {
                 console.log(`[MQTT] ${student.full_name} has already checked in today.`);
                 const resultPayload = {
                     status: 'duplicate',
@@ -146,13 +152,6 @@ const handleMqttMessage = async (topic, message) => {
                 mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, { device_id, encrypted: enc });
                 return;
             }
-
-            await AttendanceModel.create({
-                student_id: student.id,
-                card_uid: card_uid,
-                device_id: device_id,
-                status: 'present',
-            });
 
             console.log(`[MQTT] Attendance successful: ${student.full_name} (${student.student_id})`);
 

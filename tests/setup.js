@@ -1,12 +1,12 @@
 require('dotenv').config();
 const db = require('../src/config/db');
 const initDatabase = require('../src/utils/initDb');
-const { clearBlacklist } = require('../src/middlewares/auth.middleware');
 
 const cleanTables = async () => {
     await db.query('DELETE FROM attendance_records');
     await db.query('DELETE FROM unknown_cards');
     await db.query('DELETE FROM students');
+    await db.query('DELETE FROM refresh_tokens');
     await db.query('DELETE FROM device_keys');
     await db.query('DELETE FROM users');
 };

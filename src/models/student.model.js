@@ -39,7 +39,7 @@ const StudentModel = {
     },
     findById: async (id) => {
         const result = await db.query(
-            'SELECT * FROM students WHERE id = $1',
+            'SELECT * FROM students WHERE id = $1 AND is_active = true',
             [id]
         );
         return result.rows[0] || null;
@@ -56,20 +56,20 @@ const StudentModel = {
         return result.rows[0];
     },
 
-    update: async (id, { full_name, class: className, card_uid, email, phone }) => {
+    update: async (id, data) => {
+        const entries = Object.entries(data);
+        if (entries.length === 0) {
+            const result = await db.query('SELECT * FROM students WHERE id = $1', [id]);
+            return result.rows[0] || null;
+        }
+        const setClauses = entries.map(([col], i) => `"${col}" = $${i + 1}`);
+        const values = entries.map(([, val]) => val);
+        values.push(id);
         const result = await db.query(
-            `UPDATE students 
-             SET full_name = COALESCE($1, full_name),
-                 class = COALESCE($2, class),
-                 card_uid = COALESCE($3, card_uid),
-                 email = COALESCE($4, email),
-                 phone = COALESCE($5, phone),
-                 updated_at = CURRENT_TIMESTAMP
-             WHERE id = $6
-             RETURNING *`,
-            [full_name, className, card_uid, email, phone, id]
+            `UPDATE students SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${values.length} RETURNING *`,
+            values
         );
-        return result.rows[0];
+        return result.rows[0] || null;
     },
     delete: async (id) => {
         const result = await db.query(
