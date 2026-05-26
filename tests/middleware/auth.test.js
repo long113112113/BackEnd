@@ -5,9 +5,11 @@ const db = require('../../src/config/db');
 const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
 const config = require('../../src/config');
+const { clearBlacklist } = require('../../src/middlewares/auth.middleware');
 
 let validToken;
 let disabledUserId;
+let normalUserId;
 
 beforeAll(async () => {
     const hashedPassword = await argon2.hash('admin123');
@@ -18,6 +20,14 @@ beforeAll(async () => {
         ['disabled_user', 'disabled@test.com', hashedPassword, 'Disabled Admin', 'admin']
     );
     disabledUserId = result.rows[0].id;
+
+    const normalUserResult = await db.query(
+        `INSERT INTO users (username, email, password, full_name, role, is_active)
+         VALUES ($1, $2, $3, $4, $5, true)
+         RETURNING id`,
+        ['normal_user_auth_test', 'normalauth@test.com', hashedPassword, 'Normal User Auth Test', 'user']
+    );
+    normalUserId = normalUserResult.rows[0].id;
 
     const loginRes = await request(app)
         .post('/api/auth/login')
@@ -30,7 +40,11 @@ beforeAll(async () => {
 }, 15000);
 
 afterAll(async () => {
-    await db.query('DELETE FROM users WHERE username = $1', ['disabled_user']);
+    await db.query('DELETE FROM users WHERE username IN ($1, $2)', ['disabled_user', 'normal_user_auth_test']);
+});
+
+beforeEach(() => {
+    clearBlacklist();
 });
 
 describe('Auth Middleware', () => {
@@ -109,4 +123,76 @@ describe('Auth Middleware', () => {
             .set('Cookie', `token=${ghostToken}`);
         expect(res.status).toBe(401);
     });
+
+    test('HACKER: rejects JWT with alg=none signature bypass', async () => {
+        const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
+        const payload = Buffer.from(JSON.stringify({ id: 1, username: 'admin', role: 'admin' })).toString('base64url');
+        const fakeToken = `${header}.${payload}.`;
+
+        const res = await request(app)
+            .get('/api/students')
+            .set('Cookie', `token=${fakeToken}`);
+        expect(res.status).toBe(401);
+    });
+
+    test('HACKER: user role escalation - user token cannot access admin endpoints', async () => {
+        const userToken = jwt.sign(
+            { id: normalUserId, username: 'normal_user_auth_test', role: 'user' },
+            config.jwt.secret,
+            { expiresIn: '1h' }
+        );
+        const res = await request(app)
+            .post('/api/device-keys')
+            .set('Cookie', `token=${userToken}`)
+            .send({ device_id: 'HACKED', hmac_key: '0'.repeat(64) });
+        expect(res.status).toBe(403);
+    });
+
+    test('HACKER: rejects Bearer authorization header with no token', async () => {
+        const res = await request(app)
+            .get('/api/students')
+            .set('Authorization', 'Bearer');
+        expect(res.status).toBe(401);
+    });
+
+    test('HACKER: rejects Bearer authorization header with malformed prefix', async () => {
+        const res = await request(app)
+            .get('/api/students')
+            .set('Authorization', 'Bearerabc some-token');
+        expect(res.status).toBe(401);
+    });
+
+    test('HACKER: rejects authorization header without Bearer keyword', async () => {
+        const res = await request(app)
+            .get('/api/students')
+            .set('Authorization', 'RandomValueWithoutBearer');
+        expect(res.status).toBe(401);
+    });
+
+    test('HACKER: rejects empty Cookie token', async () => {
+        const res = await request(app)
+            .get('/api/students')
+            .set('Cookie', 'token=');
+        expect(res.status).toBe(401);
+    });
+
+    test('HACKER: rejects whitespace-only Cookie token', async () => {
+        const res = await request(app)
+            .get('/api/students')
+            .set('Cookie', 'token=    ');
+        expect(res.status).toBe(401);
+    });
+
+    test('HACKER: forged invalid role in JWT is rejected at middleware level', async () => {
+        const forgedToken = jwt.sign(
+            { id: normalUserId, username: 'normal_user_auth_test', role: 'superadmin' },
+            config.jwt.secret,
+            { expiresIn: '1h' }
+        );
+        const res = await request(app)
+            .get('/api/auth/me')
+            .set('Cookie', `token=${forgedToken}`);
+        expect(res.status).toBe(403);
+    });
 });
+

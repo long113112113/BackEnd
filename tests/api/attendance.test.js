@@ -70,3 +70,41 @@ describe('GET /api/attendance/student/:id', () => {
         expect(res.status).toBe(400);
     });
 });
+
+describe('HACKER / PENTEST: Security & Robustness on Attendance API', () => {
+    test('HACKER: SQL injection in date query is handled safely', async () => {
+        const res = await request(app)
+            .get("/api/attendance?date=2026-01-01'; DROP TABLE attendance_records; --")
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(400);
+    });
+
+    test('HACKER: SQL injection in student id param is handled safely', async () => {
+        const res = await request(app)
+            .get("/api/attendance/student/1' OR '1'='1")
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(400);
+    });
+
+    test('HACKER: accessing attendance logs without authorization returns 401', async () => {
+        const res = await request(app).get('/api/attendance/stats');
+        expect(res.status).toBe(401);
+    });
+
+    test('ROBUSTNESS: query with invalid date range like 2026-02-31 returns 400', async () => {
+        const res = await request(app)
+            .get('/api/attendance?date=2026-02-31')
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(400);
+    });
+
+    test('INTEGRITY: query student logs for non-existent student ID returns 200 with empty array', async () => {
+        const res = await request(app)
+            .get('/api/attendance/student/999999')
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data).toEqual([]);
+    });
+});
+

@@ -17,11 +17,20 @@ const StudentController = {
      */
     getAll: async (req, res, next) => {
         try {
-            const students = await StudentModel.findAll();
+            const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+            const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+            const { rows: students, total } = await StudentModel.findAll(page, limit);
+            const totalPages = Math.ceil(total / limit);
             res.json({
                 success: true,
                 data: students,
                 count: students.length,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages,
+                },
             });
         } catch (err) {
             next(err);

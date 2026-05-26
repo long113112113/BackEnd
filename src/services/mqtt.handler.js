@@ -77,6 +77,13 @@ const handleMqttMessage = async (topic, message) => {
                 return;
             }
 
+            if (receivedHmac.length !== 64 || !/^[0-9a-fA-F]+$/.test(receivedHmac)) {
+                console.log(`[MQTT] Invalid HMAC format device_id=${device_id} len=${receivedHmac.length}`);
+                const errPayload = encryptError(aesKey, device_id, 'error', 'Invalid HMAC format', { card_uid });
+                mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, errPayload);
+                return;
+            }
+
             const msgToSign = device_id + card_uid + nonce + seq;
             const expectedHmac = computeHmac(device.hmac_key, msgToSign);
 
@@ -107,6 +114,10 @@ const handleMqttMessage = async (topic, message) => {
             }
 
             await DeviceKeyModel.updateLastSeq(device_id, seq);
+
+            if (seqCheck.nvs_reset) {
+                console.log(`[MQTT] ⚠ NVS RESET DETECTED device_id=${device_id} seq=${seq} last_seq was ${device.last_seq} — auto-recovered`);
+            }
 
             console.log(`\n[MQTT] Card received: card_uid = ${card_uid} | device = ${device_id}`);
 

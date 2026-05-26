@@ -59,15 +59,27 @@ const verifyNonce = (nonce) => {
     return { ok: true };
 };
 
+const NVS_RESET_DELTA_THRESHOLD = 1000;
+
 const verifySeq = (newSeq, lastSeq) => {
     const seq = Number(newSeq);
     if (isNaN(seq) || seq <= 0) {
         return { ok: false, reason: 'invalid_seq' };
     }
-    if (seq <= lastSeq) {
-        return { ok: false, reason: 'seq_not_monotonic', expected: lastSeq + 1, got: seq };
+    if (!Number.isSafeInteger(seq)) {
+        return { ok: false, reason: 'overflow_seq' };
     }
-    return { ok: true };
+    const last = Number(lastSeq);
+    if (!Number.isSafeInteger(last)) {
+        return { ok: false, reason: 'overflow_last_seq' };
+    }
+    if (seq > last) {
+        return { ok: true };
+    }
+    if (seq === 1 || (last - seq) > NVS_RESET_DELTA_THRESHOLD) {
+        return { ok: true, nvs_reset: true };
+    }
+    return { ok: false, reason: 'seq_not_monotonic', expected: last + 1, got: seq };
 };
 
 module.exports = {

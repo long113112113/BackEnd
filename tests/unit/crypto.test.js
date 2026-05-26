@@ -146,6 +146,25 @@ describe('verifySeq', () => {
     test('accepts seq > lastSeq', () => {
         const result = verifySeq(5, 3);
         expect(result.ok).toBe(true);
+        expect(result.nvs_reset).toBeUndefined();
+    });
+
+    test('accepts seq === 1 with nvs_reset flag', () => {
+        const result = verifySeq(1, 500);
+        expect(result.ok).toBe(true);
+        expect(result.nvs_reset).toBe(true);
+    });
+
+    test('accepts seq < lastSeq with large delta as nvs_reset', () => {
+        const result = verifySeq(1, 2000);
+        expect(result.ok).toBe(true);
+        expect(result.nvs_reset).toBe(true);
+    });
+
+    test('accepts seq = 50, lastSeq = 1500 (delta > 1000)', () => {
+        const result = verifySeq(50, 1500);
+        expect(result.ok).toBe(true);
+        expect(result.nvs_reset).toBe(true);
     });
 
     test('rejects seq == lastSeq', () => {
@@ -154,9 +173,10 @@ describe('verifySeq', () => {
         expect(result.reason).toBe('seq_not_monotonic');
     });
 
-    test('rejects seq < lastSeq', () => {
-        const result = verifySeq(2, 5);
+    test('rejects seq < lastSeq within threshold (no nvs reset)', () => {
+        const result = verifySeq(600, 1500);
         expect(result.ok).toBe(false);
+        expect(result.reason).toBe('seq_not_monotonic');
     });
 
     test('rejects NaN', () => {
@@ -178,5 +198,18 @@ describe('verifySeq', () => {
     test('accepts string representation of number', () => {
         const result = verifySeq('10', 5);
         expect(result.ok).toBe(true);
+        expect(result.nvs_reset).toBeUndefined();
+    });
+
+    test('rejects seq beyond Number.MAX_SAFE_INTEGER', () => {
+        const result = verifySeq(Number.MAX_SAFE_INTEGER + 1, Number.MAX_SAFE_INTEGER);
+        expect(result.ok).toBe(false);
+        expect(result.reason).toBe('overflow_seq');
+    });
+
+    test('rejects when lastSeq is not safe integer', () => {
+        const result = verifySeq(5, Number.MAX_SAFE_INTEGER + 1);
+        expect(result.ok).toBe(false);
+        expect(result.reason).toBe('overflow_last_seq');
     });
 });

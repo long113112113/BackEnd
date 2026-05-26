@@ -123,6 +123,33 @@ describe('PUT /api/students/:id', () => {
             .send({ is_active: false, full_name: 'Hacked' });
         expect(res.status === 200 || res.status === 404).toBe(true);
     });
+
+    test('updates student successfully and verifies data changed', async () => {
+        const createRes = await request(app)
+            .post('/api/students')
+            .set('Cookie', getCookie())
+            .send({
+                student_id: 'UPDATE001',
+                full_name: 'Before Update',
+                class: '20DTHX1',
+                card_uid: 'A1B2C3D499',
+            });
+        expect(createRes.status).toBe(201);
+        const id = createRes.body.data.id;
+
+        const updateRes = await request(app)
+            .put(`/api/students/${id}`)
+            .set('Cookie', getCookie())
+            .send({ full_name: 'After Update' });
+        expect(updateRes.status).toBe(200);
+        expect(updateRes.body.success).toBe(true);
+        expect(updateRes.body.data.full_name).toBe('After Update');
+
+        // Clean up the created student
+        await request(app)
+            .delete(`/api/students/${id}`)
+            .set('Cookie', getCookie());
+    });
 });
 
 describe('DELETE /api/students/:id', () => {
@@ -140,3 +167,165 @@ describe('DELETE /api/students/:id', () => {
         expect(res.status).toBe(400);
     });
 });
+
+describe('HACKER / PENTEST: Security & Robustness Checks', () => {
+    test('XSS Injection: Stores raw HTML/JS payload without crashing, indicating potential Stored XSS', async () => {
+        const res = await request(app)
+            .post('/api/students')
+            .set('Cookie', getCookie())
+            .send({
+                student_id: 'XSS99999',
+                full_name: "<script>alert('XSS_ATTACK')</script>",
+                class: "<img src=x onerror=alert(1)>",
+                email: 'xss@attacker.com',
+            });
+        expect(res.status).toBe(201);
+        expect(res.body.data.full_name).toBe("<script>alert('XSS_ATTACK')</script>");
+    });
+
+    test('HTTP Parameter Pollution: Rejects array parameters to prevent server crash', async () => {
+        const res = await request(app)
+            .post('/api/students')
+            .set('Cookie', getCookie())
+            .send({
+                student_id: ['HACK1', 'HACK2'],
+                full_name: 'Attacker Array',
+            });
+        expect(res.status).toBe(400);
+    });
+
+    test('JSON Type Pollution: Rejects Boolean types for string fields', async () => {
+        const res = await request(app)
+            .post('/api/students')
+            .set('Cookie', getCookie())
+            .send({
+                student_id: true,
+                full_name: 12345,
+            });
+        expect(res.status).toBe(400);
+    });
+
+    test('DoS: Rejects payload that exceeds database length limit', async () => {
+        const res = await request(app)
+            .post('/api/students')
+            .set('Cookie', getCookie())
+            .send({
+                student_id: 'DOS' + '0'.repeat(100),
+                full_name: 'DoS Attack',
+            });
+        expect(res.status).toBe(400);
+    });
+
+    test('SQL injection attempt in parameterized routes is handled safely', async () => {
+        const res = await request(app)
+            .get("/api/students/1' OR '1'='1")
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(400);
+    });
+
+    test('Mass Assignment: Extra system columns cannot be injected', async () => {
+        const res = await request(app)
+            .post('/api/students')
+            .set('Cookie', getCookie())
+            .send({
+                student_id: 'MASSASSIGN',
+                full_name: 'Mass Assignment Target',
+                id: 8888,
+                is_active: false,
+                created_at: '2000-01-01T00:00:00.000Z',
+            });
+        expect(res.status).toBe(201);
+        expect(res.body.data.id).not.toBe(8888);
+        expect(res.body.data.is_active).toBe(true);
+    });
+
+    test('HACKER: Prototype Pollution via __proto__', async () => {
+        const res = await request(app)
+            .post('/api/students')
+            .set('Cookie', getCookie())
+            .send({
+                student_id: 'PROTO001',
+                full_name: 'Proto Attacker',
+                __proto__: { isAdmin: true },
+                constructor: { prototype: { isAdmin: true } },
+            });
+        // Should not pollute Object.prototype
+        expect(({}).isAdmin).toBeUndefined();
+    });
+
+    test('HACKER: PATCH method not allowed on students', async () => {
+        const res = await request(app)
+            .patch('/api/students/1')
+            .set('Cookie', getCookie())
+            .send({ full_name: 'Hacked' });
+        expect(res.status).toBe(404);
+    });
+
+    test('INTEGRITY: returns 409 conflict for duplicate card_uid', async () => {
+        const res1 = await request(app)
+            .post('/api/students')
+            .set('Cookie', getCookie())
+            .send({
+                student_id: 'CARDDUP1',
+                full_name: 'First Card Holder',
+                card_uid: 'D000000001',
+            });
+        expect(res1.status).toBe(201);
+
+        const res2 = await request(app)
+            .post('/api/students')
+            .set('Cookie', getCookie())
+            .send({
+                student_id: 'CARDDUP2',
+                full_name: 'Second Card Holder',
+                card_uid: 'D000000001',
+            });
+        expect(res2.status).toBe(409);
+
+        const db = require('../../src/config/db');
+        await db.query("DELETE FROM students WHERE student_id IN ('CARDDUP1', 'CARDDUP2')");
+    });
+
+    test('ROBUSTNESS: handles Unicode and Emojis in full_name and class correctly', async () => {
+        const res = await request(app)
+            .post('/api/students')
+            .set('Cookie', getCookie())
+            .send({
+                student_id: 'UNICODE01',
+                full_name: 'Nguyễn Văn Anh Dũng 🇻🇳',
+                class: 'Lớp 20DTHX1 🚀',
+                card_uid: 'E000000001',
+            });
+        expect(res.status).toBe(201);
+        expect(res.body.data.full_name).toBe('Nguyễn Văn Anh Dũng 🇻🇳');
+        expect(res.body.data.class).toBe('Lớp 20DTHX1 🚀');
+
+        const db = require('../../src/config/db');
+        await db.query("DELETE FROM students WHERE student_id = 'UNICODE01'");
+    });
+
+    test('INTEGRITY: verify soft-delete sets is_active to false in database', async () => {
+        const createRes = await request(app)
+            .post('/api/students')
+            .set('Cookie', getCookie())
+            .send({
+                student_id: 'SOFTDEL01',
+                full_name: 'Soft Delete Target',
+                card_uid: 'F000000001',
+            });
+        expect(createRes.status).toBe(201);
+        const id = createRes.body.data.id;
+
+        const deleteRes = await request(app)
+            .delete(`/api/students/${id}`)
+            .set('Cookie', getCookie());
+        expect(deleteRes.status).toBe(200);
+
+        const db = require('../../src/config/db');
+        const dbRes = await db.query('SELECT is_active FROM students WHERE id = $1', [id]);
+        expect(dbRes.rows[0].is_active).toBe(false);
+
+        await db.query('DELETE FROM students WHERE id = $1', [id]);
+    });
+});
+

@@ -4,7 +4,8 @@ exports.getByDate = [
     query('date')
         .optional()
         .trim()
-        .matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Date must be in YYYY-MM-DD format'),
+        .isDate({ format: 'YYYY-MM-DD', strictMode: true })
+        .withMessage('Date must be a valid calendar date in YYYY-MM-DD format'),
 ];
 
 exports.getByStudent = [

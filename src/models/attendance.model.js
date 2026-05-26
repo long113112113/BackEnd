@@ -31,16 +31,25 @@ const AttendanceModel = {
         );
         return result.rows[0];
     },
-    findByDate: async (date) => {
+    findByDate: async (date, page = 1, limit = 50) => {
+        const offset = (page - 1) * limit;
+        const countResult = await db.query(
+            `SELECT COUNT(*) FROM attendance_records ar
+             JOIN students s ON ar.student_id = s.id
+             WHERE DATE(ar.check_in_time) = $1`,
+            [date]
+        );
+        const total = parseInt(countResult.rows[0].count, 10);
         const result = await db.query(
             `SELECT ar.*, s.full_name, s.student_id as mssv, s.class
              FROM attendance_records ar
              JOIN students s ON ar.student_id = s.id
              WHERE DATE(ar.check_in_time) = $1
-             ORDER BY ar.check_in_time DESC`,
-            [date]
+             ORDER BY ar.check_in_time DESC
+             LIMIT $2 OFFSET $3`,
+            [date, limit, offset]
         );
-        return result.rows;
+        return { rows: result.rows, total };
     },
 
     findByStudentId: async (studentId) => {

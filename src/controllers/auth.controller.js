@@ -3,6 +3,7 @@ const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
 const UserModel = require('../models/user.model');
 const config = require('../config');
+const { addToBlacklist } = require('../middlewares/auth.middleware');
 
 const setTokenCookie = (res, token) => {
     res.cookie('token', token, {
@@ -63,6 +64,11 @@ const AuthController = {
 
     logout: async (req, res, next) => {
         try {
+            const token = req.cookies?.token
+                || (req.headers.authorization?.startsWith('Bearer ') && req.headers.authorization.split(' ')[1]);
+            if (token) {
+                addToBlacklist(token);
+            }
             res.clearCookie('token', {
                 httpOnly: true,
                 secure: config.nodeEnv === 'production',

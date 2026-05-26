@@ -114,6 +114,74 @@ describe('POST /api/device-keys', () => {
     });
 });
 
+describe('PENTEST: hmac_key validation boundaries', () => {
+    const validHmac = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+
+    test('rejects 0x prefix (isHexadecimal bypass attempt)', async () => {
+        const res = await request(app)
+            .post('/api/device-keys')
+            .set('Cookie', getCookie())
+            .send({ device_id: 'ESP32_X', hmac_key: '0x' + 'A'.repeat(62) });
+        expect(res.status).toBe(400);
+    });
+
+    test('rejects 0h prefix (isHexadecimal bypass attempt)', async () => {
+        const res = await request(app)
+            .post('/api/device-keys')
+            .set('Cookie', getCookie())
+            .send({ device_id: 'ESP32_X', hmac_key: '0h' + 'A'.repeat(62) });
+        expect(res.status).toBe(400);
+    });
+
+    test('rejects hmac_key too short (63 hex)', async () => {
+        const res = await request(app)
+            .post('/api/device-keys')
+            .set('Cookie', getCookie())
+            .send({ device_id: 'ESP32_X', hmac_key: 'a'.repeat(63) });
+        expect(res.status).toBe(400);
+    });
+
+    test('rejects hmac_key too long (65 hex)', async () => {
+        const res = await request(app)
+            .post('/api/device-keys')
+            .set('Cookie', getCookie())
+            .send({ device_id: 'ESP32_X', hmac_key: 'a'.repeat(65) });
+        expect(res.status).toBe(400);
+    });
+
+    test('rejects empty hmac_key', async () => {
+        const res = await request(app)
+            .post('/api/device-keys')
+            .set('Cookie', getCookie())
+            .send({ device_id: 'ESP32_X', hmac_key: '' });
+        expect(res.status).toBe(400);
+    });
+
+    test('rejects SQL injection in hmac_key', async () => {
+        const res = await request(app)
+            .post('/api/device-keys')
+            .set('Cookie', getCookie())
+            .send({ device_id: 'ESP32_X', hmac_key: "'; DROP TABLE device_keys;--".padEnd(64, '0') });
+        expect(res.status).toBe(400);
+    });
+
+    test('rejects XSS in hmac_key', async () => {
+        const res = await request(app)
+            .post('/api/device-keys')
+            .set('Cookie', getCookie())
+            .send({ device_id: 'ESP32_X', hmac_key: '<script>alert(1)</script>' + '0'.repeat(64) });
+        expect(res.status).toBe(400);
+    });
+
+    test('rejects unicode in hmac_key', async () => {
+        const res = await request(app)
+            .post('/api/device-keys')
+            .set('Cookie', getCookie())
+            .send({ device_id: 'ESP32_X', hmac_key: 'caf\u00e9' + '0'.repeat(60) });
+        expect(res.status).toBe(400);
+    });
+});
+
 describe('POST /api/device-keys/batch', () => {
     test('admin can batch create', async () => {
         const res = await request(app)

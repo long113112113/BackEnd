@@ -27,11 +27,15 @@ const StudentModel = {
         return result.rows[0] || null;
     },
 
-    findAll: async () => {
+    findAll: async (page = 1, limit = 50) => {
+        const offset = (page - 1) * limit;
+        const countResult = await db.query('SELECT COUNT(*) FROM students WHERE is_active = true');
+        const total = parseInt(countResult.rows[0].count, 10);
         const result = await db.query(
-            'SELECT * FROM students ORDER BY full_name ASC'
+            'SELECT * FROM students WHERE is_active = true ORDER BY full_name ASC LIMIT $1 OFFSET $2',
+            [limit, offset]
         );
-        return result.rows;
+        return { rows: result.rows, total };
     },
     findById: async (id) => {
         const result = await db.query(
