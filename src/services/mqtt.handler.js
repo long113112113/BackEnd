@@ -77,13 +77,20 @@ const handleMqttMessage = async (topic, message) => {
                 return;
             }
 
+            if (typeof receivedHmac !== 'string' || !/^[0-9a-fA-F]+$/.test(receivedHmac)) {
+                console.log(`[MQTT] Invalid HMAC format from device_id=${device_id}`);
+                const errPayload = encryptError(aesKey, device_id, 'error', 'Invalid HMAC format', { card_uid });
+                mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, errPayload);
+                return;
+            }
+
             const msgToSign = device_id + card_uid + nonce + seq;
             const expectedHmac = computeHmac(device.hmac_key, msgToSign);
 
-            const hash1 = crypto.createHash('sha256').update(Buffer.from(receivedHmac, 'hex')).digest();
-            const hash2 = crypto.createHash('sha256').update(Buffer.from(expectedHmac, 'hex')).digest();
+            const receivedBuffer = Buffer.from(receivedHmac, 'hex');
+            const expectedBuffer = Buffer.from(expectedHmac, 'hex');
 
-            if (!crypto.timingSafeEqual(hash1, hash2)) {
+            if (receivedBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(receivedBuffer, expectedBuffer)) {
                 console.log(`[MQTT] HMAC mismatch device_id=${device_id}`);
                 const errPayload = encryptError(aesKey, device_id, 'error', 'HMAC verification failed', { card_uid });
                 mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, errPayload);
