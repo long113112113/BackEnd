@@ -1,10 +1,11 @@
 const os = require('os');
 const net = require('net');
+const logger = require('../utils/logger');
 
 const requiredEnv = (name) => {
     const val = process.env[name];
     if (!val) {
-        console.error(`[MQTT] Missing required env variable: ${name}. Please set it in .env`);
+        logger.error(`[MQTT] Missing required env variable: ${name}. Please set it in .env`);
         process.exit(1);
     }
     return val;
@@ -30,10 +31,10 @@ const start = async () => {
 
             if (isEsp32 || isInternal) {
                 client.isEsp32 = isEsp32;
-                console.log(`[MQTT] Auth OK: client=${client.id} role=${isEsp32 ? 'esp32' : 'internal'}`);
+                logger.info(`[MQTT] Auth OK: client=${client.id} role=${isEsp32 ? 'esp32' : 'internal'}`);
                 callback(null, true);
             } else {
-                console.log(`[MQTT] Auth DENIED: client=${client.id} username=${username}`);
+                logger.info(`[MQTT] Auth DENIED: client=${client.id} username=${username}`);
                 callback(null, false);
             }
         },
@@ -41,7 +42,7 @@ const start = async () => {
             if (!client || !client.id) {
                 return callback(new Error('Unauthorized publish'));
             }
-            if (client.isEsp32 && packet.topic.startsWith(`${TOPIC_PREFIX}/attendance/result/`)) {
+            if (client.isEsp32 && packet.topic.startsWith(`${TOPIC_PREFIX}/attendance/result`)) {
                 return callback(new Error('ESP32 cannot publish to result topic'));
             }
             callback(null);
@@ -61,16 +62,16 @@ const start = async () => {
     });
 
     aedesInstance.on('client', (client) => {
-        console.log(`[MQTT] Client connected: ${client.id}`);
+        logger.info(`[MQTT] Client connected: ${client.id}`);
     });
 
     aedesInstance.on('clientDisconnect', (client) => {
-        console.log(`[MQTT] Client disconnected: ${client.id}`);
+        logger.info(`[MQTT] Client disconnected: ${client.id}`);
     });
 
     aedesInstance.on('publish', (packet, client) => {
         if (client) {
-            console.log(`[MQTT] Publish: topic=${packet.topic} from=${client.id}`);
+            logger.info(`[MQTT] Publish: topic=${packet.topic} from=${client.id}`);
         }
     });
 
@@ -88,7 +89,7 @@ const start = async () => {
                 }
             }
 
-            console.log(`[MQTT] Broker (Aedes) is running at mqtt://${brokerIp}:${MQTT_PORT}`);
+            logger.info(`[MQTT] Broker (Aedes) is running at mqtt://${brokerIp}:${MQTT_PORT}`);
             resolve(server);
         });
 
@@ -105,7 +106,7 @@ const stop = () => {
     return new Promise((resolve) => {
         if (server) {
             server.close(() => {
-                console.log('[MQTT] Broker stopped.');
+                logger.info('[MQTT] Broker stopped.');
                 resolve();
             });
         } else {

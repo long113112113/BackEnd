@@ -21,10 +21,10 @@ app.use(cors({
     credentials: true,
 }));
 app.use(cookieParser());
+morgan.token('path', (req) => req.path);
 if (config.nodeEnv === 'development') {
     app.use(morgan('dev'));
 } else {
-    morgan.token('path', (req) => req.path);
     app.use(morgan(':method :path :status :response-time ms'));
 }
 app.use(express.json({ limit: '10kb' }));
@@ -33,17 +33,20 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use('/api', routes);
 
 app.get('/', (req, res) => {
-    res.json({
-        message: 'IoT Attendance Server is active.',
-        version: '1.0.0',
-        endpoints: {
-            health: '/api/health',
-            auth: '/api/auth',
-            students: '/api/students',
-            attendance: '/api/attendance',
-            'device-keys': '/api/device-keys',
-        },
-    });
+    if (config.nodeEnv === 'development') {
+        return res.json({
+            message: 'IoT Attendance Server is active.',
+            version: '1.0.0',
+            endpoints: {
+                health: '/api/health',
+                auth: '/api/auth',
+                students: '/api/students',
+                attendance: '/api/attendance',
+                'device-keys': '/api/device-keys',
+            },
+        });
+    }
+    res.json({ message: 'IoT Attendance Server is active.' });
 });
 
 app.use(notFoundHandler);

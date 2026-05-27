@@ -1,18 +1,76 @@
 const crypto = require('crypto');
+const { initRedis } = require('../config/redis');
+const logger = require('./logger');
 
 const NONCE_TTL_MS = 60_000;
 const AES_DOMAIN_SEPARATOR = 'attendance-aes-gcm-v1';
 
-const seenNonces = new Map();
+let nonceStore = null;
 
-setInterval(() => {
-    const now = Date.now();
-    for (const [nonce, ts] of seenNonces) {
-        if (now - ts > NONCE_TTL_MS) {
-            seenNonces.delete(nonce);
+const MemoryStore = () => {
+    const map = new Map();
+
+    const interval = setInterval(() => {
+        const now = Date.now();
+        for (const [nonce, ts] of map) {
+            if (now - ts > NONCE_TTL_MS) {
+                map.delete(nonce);
+            }
         }
+    }, 10_000);
+    interval.unref();
+
+
+    return {
+        checkAndStore: async (nonce) => {
+            if (map.has(nonce)) return false;
+            map.set(nonce, Date.now());
+            return true;
+        },
+        destroy: () => {
+            clearInterval(interval);
+            map.clear();
+        },
+    };
+};
+
+const RedisStore = (redis) => ({
+    checkAndStore: async (nonce) => {
+        const result = await redis.set(`nonce:${nonce}`, '1', 'EX', 60, 'NX');
+        return result === 'OK';
+    },
+    destroy: () => { redis.disconnect(); },
+});
+
+const initNonceStore = async () => {
+    const redis = await initRedis();
+
+    if (redis) {
+        nonceStore = RedisStore(redis);
+        logger.info('[Crypto] Using Redis nonce store.');
+    } else {
+        nonceStore = MemoryStore();
+        logger.info('[Crypto] Using in-memory nonce store.');
     }
-}, 10_000);
+};
+
+const verifyNonce = async (nonce) => {
+    if (!nonceStore) {
+        nonceStore = MemoryStore();
+    }
+    if (!nonce || typeof nonce !== 'string' || nonce.length !== 32) {
+        return { ok: false, reason: 'invalid_nonce_format' };
+    }
+    try {
+        const stored = await nonceStore.checkAndStore(nonce);
+        if (!stored) {
+            return { ok: false, reason: 'nonce_reused' };
+        }
+    } catch {
+        return { ok: false, reason: 'nonce_store_error' };
+    }
+    return { ok: true };
+};
 
 const computeHmac = (keyHex, message) => {
     const key = Buffer.from(keyHex, 'hex');
@@ -48,17 +106,6 @@ const decryptAesGcm = (keyHex, encryptedObj) => {
     return decrypted.toString('utf8');
 };
 
-const verifyNonce = (nonce) => {
-    if (!nonce || typeof nonce !== 'string' || nonce.length !== 32) {
-        return { ok: false, reason: 'invalid_nonce_format' };
-    }
-    if (seenNonces.has(nonce)) {
-        return { ok: false, reason: 'nonce_reused' };
-    }
-    seenNonces.set(nonce, Date.now());
-    return { ok: true };
-};
-
 const NVS_RESET_DELTA_THRESHOLD = 1000;
 
 const verifySeq = (newSeq, lastSeq) => {
@@ -82,7 +129,15 @@ const verifySeq = (newSeq, lastSeq) => {
     return { ok: false, reason: 'seq_not_monotonic', expected: last + 1, got: seq };
 };
 
+const destroyNonceStore = async () => {
+    if (nonceStore && nonceStore.destroy) {
+        await nonceStore.destroy();
+    }
+};
+
 module.exports = {
+    initNonceStore,
+    destroyNonceStore,
     computeHmac,
     verifyNonce,
     verifySeq,

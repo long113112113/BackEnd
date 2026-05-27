@@ -121,9 +121,12 @@ const AuthController = {
             }
 
             const tokenHash = crypto.createHash('sha256').update(refreshTokenRaw).digest('hex');
-            const saved = await RefreshTokenModel.findByHash(tokenHash);
+            const exchanged = await RefreshTokenModel.exchange(
+                tokenHash,
+                config.jwt.refreshMaxAgeMs
+            );
 
-            if (!saved) {
+            if (!exchanged) {
                 clearAuthCookies(res);
                 return res.status(401).json({
                     success: false,
@@ -131,29 +134,14 @@ const AuthController = {
                 });
             }
 
-            if (!saved.is_active) {
-                await RefreshTokenModel.deleteAllForUser(saved.user_id);
-                clearAuthCookies(res);
-                return res.status(401).json({
-                    success: false,
-                    message: 'Account is disabled.',
-                });
-            }
-
-            await RefreshTokenModel.deleteByHash(tokenHash);
-
             const accessToken = jwt.sign(
-                { id: saved.user_id, username: saved.username, role: saved.role },
+                { id: exchanged.user.user_id, username: exchanged.user.username, role: exchanged.user.role },
                 config.jwt.secret,
                 { expiresIn: config.jwt.accessExpiresIn }
             );
-            const { rawToken: newRefreshToken } = await RefreshTokenModel.create(
-                saved.user_id,
-                config.jwt.refreshMaxAgeMs
-            );
 
             setTokenCookie(res, accessToken, config.jwt.accessMaxAgeMs);
-            setRefreshCookie(res, newRefreshToken, config.jwt.refreshMaxAgeMs);
+            setRefreshCookie(res, exchanged.rawToken, config.jwt.refreshMaxAgeMs);
 
             res.json({
                 success: true,

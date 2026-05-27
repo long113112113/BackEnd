@@ -135,16 +135,10 @@ describe('MQTT Message Handler - Edge Cases', () => {
         vi.restoreAllMocks();
     });
 
-    test('should use fallback device_id ESP32-01 when payload has no device_id', async () => {
-        vi.spyOn(DeviceKeyModel, 'findByDeviceId').mockResolvedValue(null);
+    test('should silently ignore scan message without device_id', async () => {
         const payload = { encrypted: { iv: 'iv', ciphertext: 'c', auth_tag: 't' } };
         await handleMqttMessage('hutech_lms/attendance/scan', Buffer.from(JSON.stringify(payload)));
-        expect(publishSpy).toHaveBeenCalledWith(
-            'hutech_lms/attendance/result/ESP32-01',
-            expect.objectContaining({
-                device_id: 'ESP32-01',
-            })
-        );
+        expect(publishSpy).not.toHaveBeenCalled();
     });
 
     test('should return error when inner payload is missing card_uid', async () => {

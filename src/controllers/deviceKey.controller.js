@@ -1,24 +1,12 @@
 const DeviceKeyModel = require('../models/deviceKey.model');
+const db = require('../config/db');
 
 const DEVICE_ID_REGEX = /^[a-zA-Z0-9_-]{1,50}$/;
 const HMAC_KEY_REGEX = /^[a-fA-F0-9]{64}$/;
 
-const requireAdmin = (req, res) => {
-    if (req.user.role !== 'admin') {
-        res.status(403).json({
-            success: false,
-            message: 'Access denied. Admin role required.',
-        });
-        return false;
-    }
-    return true;
-};
-
 const DeviceKeyController = {
     getAll: async (req, res, next) => {
         try {
-            if (!requireAdmin(req, res)) return;
-
             const devices = await DeviceKeyModel.findAll();
             res.json({ success: true, data: devices, count: devices.length });
         } catch (err) {
@@ -28,8 +16,6 @@ const DeviceKeyController = {
 
     create: async (req, res, next) => {
         try {
-            if (!requireAdmin(req, res)) return;
-
             const { device_id, hmac_key } = req.body;
             const device = await DeviceKeyModel.upsert({ device_id, hmac_key });
             res.status(201).json({ success: true, data: device });
@@ -39,9 +25,8 @@ const DeviceKeyController = {
     },
 
     createBatch: async (req, res, next) => {
+        const client = await db.getClient();
         try {
-            if (!requireAdmin(req, res)) return;
-
             const { keys } = req.body;
 
             const entries = keys.split(',').map(s => s.trim()).filter(Boolean);
@@ -57,27 +42,33 @@ const DeviceKeyController = {
                     continue;
                 }
 
-                try {
-                    await DeviceKeyModel.upsert({ device_id, hmac_key });
-                    results.provisioned.push(device_id);
-                } catch {
-                    results.errors.push({ entry, reason: 'Database error' });
-                }
+                results.provisioned.push(device_id);
             }
 
-            res.status(201).json({
-                success: true,
-                data: results,
-            });
+            if (results.errors.length > 0 && results.provisioned.length === 0) {
+                return res.status(400).json({ success: false, data: results });
+            }
+
+            await client.query('BEGIN');
+            for (const device_id of results.provisioned) {
+                const entry = entries.find(e => e.startsWith(`${device_id}:`));
+                const colonIdx = entry.indexOf(':');
+                const hmac_key = entry.slice(colonIdx + 1).trim();
+                await DeviceKeyModel.upsert({ device_id, hmac_key }, client);
+            }
+            await client.query('COMMIT');
+
+            res.status(201).json({ success: true, data: results });
         } catch (err) {
+            await client.query('ROLLBACK');
             next(err);
+        } finally {
+            client.release();
         }
     },
 
     delete: async (req, res, next) => {
         try {
-            if (!requireAdmin(req, res)) return;
-
             const { deviceId } = req.params;
 
             const device = await DeviceKeyModel.delete(deviceId);

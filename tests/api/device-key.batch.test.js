@@ -58,12 +58,12 @@ describe('POST /api/device-keys/batch - edge cases', () => {
         expect(res.status).toBe(400);
     });
 
-    test('returns 201 with all errors when every entry is invalid format', async () => {
+    test('returns 400 with all errors when every entry is invalid format', async () => {
         const res = await request(app)
             .post('/api/device-keys/batch')
             .set('Cookie', getCookie())
             .send({ keys: 'baddevice1:shorthash,baddevice2:also_short' });
-        expect(res.status).toBe(201);
+        expect(res.status).toBe(400);
         expect(res.body.data.errors.length).toBe(2);
         expect(res.body.data.provisioned.length).toBe(0);
     });

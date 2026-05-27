@@ -1,3 +1,4 @@
+const logger = require('./logger');
 const StudentModel = require('../models/student.model');
 const AttendanceModel = require('../models/attendance.model');
 const UserModel = require('../models/user.model');
@@ -8,7 +9,7 @@ const db = require('../config/db');
 
 const initDatabase = async () => {
     try {
-        console.log('\n[Database] Initializing database...');
+        logger.info('\n[Database] Initializing database...');
 
         const connected = await db.testConnection();
         if (!connected) {
@@ -22,9 +23,9 @@ const initDatabase = async () => {
         await DeviceKeyModel.createTable();
         await RefreshTokenModel.createTable();
 
-        console.log('[Database] Database is ready.\n');
+        logger.info('[Database] Database is ready.\n');
     } catch (err) {
-        console.error('[Database] Database initialization failed:', err.message);
+        logger.error('[Database] Database initialization failed:', err.message);
         process.exit(1);
     }
 };

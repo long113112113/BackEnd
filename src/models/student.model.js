@@ -57,7 +57,8 @@ const StudentModel = {
     },
 
     update: async (id, data) => {
-        const entries = Object.entries(data);
+        const ALLOWED_COLUMNS = new Set(['full_name', 'class', 'card_uid', 'email', 'phone']);
+        const entries = Object.entries(data).filter(([col]) => ALLOWED_COLUMNS.has(col));
         if (entries.length === 0) {
             const result = await db.query('SELECT * FROM students WHERE id = $1', [id]);
             return result.rows[0] || null;

@@ -7,12 +7,10 @@ const DeviceKeyModel = {
                 id SERIAL PRIMARY KEY,
                 device_id VARCHAR(50) UNIQUE NOT NULL,
                 hmac_key VARCHAR(128) NOT NULL,
-                last_seq INTEGER DEFAULT 0,
+                last_seq BIGINT DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
-            CREATE INDEX IF NOT EXISTS idx_device_keys_device_id
-                ON device_keys(device_id);
         `;
         await db.query(sql);
     },
@@ -25,8 +23,9 @@ const DeviceKeyModel = {
         return result.rows[0] || null;
     },
 
-    upsert: async ({ device_id, hmac_key }) => {
-        const result = await db.query(
+    upsert: async ({ device_id, hmac_key }, client) => {
+        const executor = client || db;
+        const result = await executor.query(
             `INSERT INTO device_keys (device_id, hmac_key)
              VALUES ($1, $2)
              ON CONFLICT (device_id)
@@ -37,7 +36,11 @@ const DeviceKeyModel = {
             [device_id, hmac_key]
         );
         if (result.rows[0]) return result.rows[0];
-        return DeviceKeyModel.findByDeviceId(device_id);
+        const row = await executor.query(
+            'SELECT * FROM device_keys WHERE device_id = $1',
+            [device_id]
+        );
+        return row.rows[0] || null;
     },
 
     updateLastSeq: async (deviceId, seq) => {

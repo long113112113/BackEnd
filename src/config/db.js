@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const logger = require('../utils/logger');
 
 const connectionString = process.env.DATABASE_URL;
 const sslConfig = process.env.DB_SSL_REJECT_UNAUTHORIZED === 'false'
@@ -13,11 +14,11 @@ const pool = new Pool({
     connectionTimeoutMillis: 5000,
 });
 pool.on('connect', () => {
-    console.log('[Database] New connection established to Neon PostgreSQL');
+    logger.info('[Database] New connection established to Neon PostgreSQL');
 });
 
 pool.on('error', (err) => {
-    console.error('[Database] Database connection error:', err.message);
+    logger.error('[Database] Database connection error:', err.message);
 });
 
 const query = async (text, params) => {
@@ -25,17 +26,17 @@ const query = async (text, params) => {
     const result = await pool.query(text, params);
     const duration = Date.now() - start;
     if (process.env.NODE_ENV === 'development') {
-        console.log('[Database] Query:', { text, duration: `${duration}ms`, rows: result.rowCount });
+        logger.info('[Database] Query:', { text, duration: `${duration}ms`, rows: result.rowCount });
     }
     return result;
 };
 const testConnection = async () => {
     try {
         const result = await pool.query('SELECT NOW()');
-        console.log('[Database] Connected successfully! Server time:', result.rows[0].now);
+        logger.info('[Database] Connected successfully! Server time:', result.rows[0].now);
         return true;
     } catch (err) {
-        console.error('[Database] Failed to connect to database:', err.message);
+        logger.error('[Database] Failed to connect to database:', err.message);
         return false;
     }
 };
@@ -44,4 +45,6 @@ module.exports = {
     pool,
     query,
     testConnection,
+    getClient: () => pool.connect(),
+    closePool: () => pool.end(),
 };

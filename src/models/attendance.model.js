@@ -19,6 +19,8 @@ const AttendanceModel = {
                 ON attendance_records(student_id);
             CREATE INDEX IF NOT EXISTS idx_attendance_date 
                 ON attendance_records(check_in_time);
+            CREATE INDEX IF NOT EXISTS idx_attendance_check_date
+                ON attendance_records(DATE(check_in_time));
         `;
         await db.query(sql);
     },
@@ -33,15 +35,9 @@ const AttendanceModel = {
     },
     findByDate: async (date, page = 1, limit = 50) => {
         const offset = (page - 1) * limit;
-        const countResult = await db.query(
-            `SELECT COUNT(*) FROM attendance_records ar
-             JOIN students s ON ar.student_id = s.id
-             WHERE DATE(ar.check_in_time) = $1`,
-            [date]
-        );
-        const total = parseInt(countResult.rows[0].count, 10);
         const result = await db.query(
-            `SELECT ar.*, s.full_name, s.student_id as mssv, s.class
+            `SELECT ar.*, s.full_name, s.student_id as mssv, s.class,
+                    COUNT(*) OVER() AS __total_count
              FROM attendance_records ar
              JOIN students s ON ar.student_id = s.id
              WHERE DATE(ar.check_in_time) = $1
@@ -49,7 +45,9 @@ const AttendanceModel = {
              LIMIT $2 OFFSET $3`,
             [date, limit, offset]
         );
-        return { rows: result.rows, total };
+        const total = result.rows.length > 0 ? parseInt(result.rows[0].__total_count, 10) : 0;
+        const rows = result.rows.map(({ __total_count, ...row }) => row);
+        return { rows, total };
     },
 
     findByStudentId: async (studentId) => {

@@ -107,38 +107,38 @@ describe('encryptAesGcm / decryptAesGcm roundtrip', () => {
 });
 
 describe('verifyNonce', () => {
-    test('accepts valid 32-char hex string', () => {
-        const result = verifyNonce('abcd1234abcd1234abcd1234abcd1234');
+    test('accepts valid 32-char hex string', async () => {
+        const result = await verifyNonce('abcd1234abcd1234abcd1234abcd1234');
         expect(result.ok).toBe(true);
     });
 
-    test('rejects non-string', () => {
-        const result = verifyNonce(123);
+    test('rejects non-string', async () => {
+        const result = await verifyNonce(123);
         expect(result.ok).toBe(false);
         expect(result.reason).toBe('invalid_nonce_format');
     });
 
-    test('rejects wrong length', () => {
-        const result = verifyNonce('tooshort');
+    test('rejects wrong length', async () => {
+        const result = await verifyNonce('tooshort');
         expect(result.ok).toBe(false);
         expect(result.reason).toBe('invalid_nonce_format');
     });
 
-    test('rejects null/undefined', () => {
-        expect(verifyNonce(null).ok).toBe(false);
-        expect(verifyNonce(undefined).ok).toBe(false);
+    test('rejects null/undefined', async () => {
+        expect((await verifyNonce(null)).ok).toBe(false);
+        expect((await verifyNonce(undefined)).ok).toBe(false);
     });
 
-    test('rejects reused nonce', () => {
+    test('rejects reused nonce', async () => {
         const nonce = 'deadbeef12345678deadbeef12345678';
-        expect(verifyNonce(nonce).ok).toBe(true);
-        expect(verifyNonce(nonce).ok).toBe(false);
-        expect(verifyNonce(nonce).reason).toBe('nonce_reused');
+        expect((await verifyNonce(nonce)).ok).toBe(true);
+        expect((await verifyNonce(nonce)).ok).toBe(false);
+        expect((await verifyNonce(nonce)).reason).toBe('nonce_reused');
     });
 
-    test('accepts different nonce', () => {
-        expect(verifyNonce('aaaa1111bbbb2222cccc3333dddd4444').ok).toBe(true);
-        expect(verifyNonce('eeee5555ffff6666eeee5555ffff6666').ok).toBe(true);
+    test('accepts different nonce', async () => {
+        expect((await verifyNonce('aaaa1111bbbb2222cccc3333dddd4444')).ok).toBe(true);
+        expect((await verifyNonce('eeee5555ffff6666eeee5555ffff6666')).ok).toBe(true);
     });
 });
 

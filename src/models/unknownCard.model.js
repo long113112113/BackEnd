@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const logger = require('../utils/logger');
 
 const UnknownCardModel = {
     createTable: async () => {
@@ -11,9 +12,11 @@ const UnknownCardModel = {
                 seen_count INTEGER DEFAULT 1,
                 latest_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+            CREATE INDEX IF NOT EXISTS idx_unknown_cards_latest_seen
+                ON unknown_cards(latest_seen DESC);
         `;
         await db.query(sql);
-        console.log('[Database] Unknown cards table is ready.');
+        logger.info('[Database] Unknown cards table is ready.');
     },
 
     upsert: async (cardUID, deviceId) => {
@@ -23,7 +26,7 @@ const UnknownCardModel = {
              ON CONFLICT (card_uid)
              DO UPDATE SET seen_count = unknown_cards.seen_count + 1,
                            latest_seen = CURRENT_TIMESTAMP,
-                           device_id = COALESCE($2, unknown_cards.device_id)
+                           device_id = COALESCE(unknown_cards.device_id, $2)
              RETURNING *`,
             [cardUID, deviceId]
         );
