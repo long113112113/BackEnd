@@ -75,14 +75,15 @@ describe('AttendanceModel.findByDate', () => {
 
 describe('AttendanceModel.findByStudentId', () => {
     test('returns records for given student', async () => {
-        const records = await AttendanceModel.findByStudentId(studentId);
-        expect(records.length).toBeGreaterThanOrEqual(1);
-        expect(records[0].student_id).toBe(studentId);
+        const { rows, total } = await AttendanceModel.findByStudentId(studentId);
+        expect(rows.length).toBeGreaterThanOrEqual(1);
+        expect(rows[0].student_id).toBe(studentId);
+        expect(total).toBeGreaterThanOrEqual(1);
     });
 
     test('returns empty array for non-existent student', async () => {
-        const records = await AttendanceModel.findByStudentId(999999);
-        expect(records).toEqual([]);
+        const result = await AttendanceModel.findByStudentId(999999);
+        expect(result).toEqual({ rows: [], total: 0 });
     });
 });
 

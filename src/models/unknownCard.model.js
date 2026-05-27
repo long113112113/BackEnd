@@ -33,11 +33,17 @@ const UnknownCardModel = {
         return result.rows[0];
     },
 
-    findAll: async () => {
+    findAll: async (page = 1, limit = 50) => {
+        const offset = (page - 1) * limit;
         const result = await db.query(
-            'SELECT * FROM unknown_cards ORDER BY latest_seen DESC'
+            `SELECT *, COUNT(*) OVER() AS __total_count 
+             FROM unknown_cards ORDER BY latest_seen DESC
+             LIMIT $1 OFFSET $2`,
+            [limit, offset]
         );
-        return result.rows;
+        const total = result.rows.length > 0 ? parseInt(result.rows[0].__total_count, 10) : 0;
+        const rows = result.rows.map(({ __total_count, ...row }) => row);
+        return { rows, total };
     },
 
     delete: async (cardUid) => {

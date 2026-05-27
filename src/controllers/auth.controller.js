@@ -134,11 +134,11 @@ const AuthController = {
                 });
             }
 
-            const accessToken = jwt.sign(
-                { id: exchanged.user.user_id, username: exchanged.user.username, role: exchanged.user.role },
-                config.jwt.secret,
-                { expiresIn: config.jwt.accessExpiresIn }
-            );
+            const accessToken = generateAccessToken({
+                id: exchanged.user.user_id,
+                username: exchanged.user.username,
+                role: exchanged.user.role
+            });
 
             setTokenCookie(res, accessToken, config.jwt.accessMaxAgeMs);
             setRefreshCookie(res, exchanged.rawToken, config.jwt.refreshMaxAgeMs);

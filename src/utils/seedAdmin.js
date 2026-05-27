@@ -21,6 +21,10 @@ const seedAdmin = async () => {
             return;
         }
 
+        if (password.length < 12) {
+            logger.warn('[Seed] ADMIN_PASSWORD is too short (< 12 chars). Consider a stronger password.');
+        }
+
         const hashedPassword = await argon2.hash(password);
 
         await UserModel.create({

@@ -78,7 +78,8 @@ const start = async () => {
     return new Promise((resolve, reject) => {
         server = net.createServer(aedesInstance.handle);
 
-        server.listen(MQTT_PORT, () => {
+        const MQTT_BIND = process.env.MQTT_BIND_ADDRESS;
+        server.listen(MQTT_PORT, MQTT_BIND, () => {
             const nets = os.networkInterfaces();
             let brokerIp = 'localhost';
             for (const name of Object.keys(nets)) {

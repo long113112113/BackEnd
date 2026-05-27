@@ -4,6 +4,17 @@ const UserModel = require('../models/user.model');
 
 const VALID_ROLES = ['admin', 'user'];
 
+const userCache = new Map();
+const CACHE_TTL = 60_000;
+
+const getCachedUser = async (userId) => {
+    const cached = userCache.get(userId);
+    if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.user;
+    const user = await UserModel.findById(userId);
+    if (user) userCache.set(userId, { user, ts: Date.now() });
+    return user;
+};
+
 const authMiddleware = async (req, res, next) => {
     try {
         const token = req.cookies?.token
@@ -25,7 +36,7 @@ const authMiddleware = async (req, res, next) => {
             });
         }
 
-        const user = await UserModel.findById(decoded.id);
+        const user = await getCachedUser(decoded.id);
         if (!user || !user.is_active) {
             return res.status(401).json({
                 success: false,

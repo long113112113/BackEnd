@@ -29,13 +29,15 @@ const StudentModel = {
 
     findAll: async (page = 1, limit = 50) => {
         const offset = (page - 1) * limit;
-        const countResult = await db.query('SELECT COUNT(*) FROM students WHERE is_active = true');
-        const total = parseInt(countResult.rows[0].count, 10);
         const result = await db.query(
-            'SELECT * FROM students WHERE is_active = true ORDER BY full_name ASC LIMIT $1 OFFSET $2',
+            `SELECT *, COUNT(*) OVER() AS __total_count 
+             FROM students WHERE is_active = true 
+             ORDER BY full_name ASC LIMIT $1 OFFSET $2`,
             [limit, offset]
         );
-        return { rows: result.rows, total };
+        const total = result.rows.length > 0 ? parseInt(result.rows[0].__total_count, 10) : 0;
+        const rows = result.rows.map(({ __total_count, ...row }) => row);
+        return { rows, total };
     },
     findById: async (id) => {
         const result = await db.query(

@@ -3,8 +3,21 @@ const UnknownCardModel = require('../models/unknownCard.model');
 const UnknownCardController = {
     getAll: async (req, res, next) => {
         try {
-            const cards = await UnknownCardModel.findAll();
-            res.json({ success: true, data: cards, count: cards.length });
+            const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+            const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+            const { rows: cards, total } = await UnknownCardModel.findAll(page, limit);
+            const totalPages = Math.ceil(total / limit);
+            res.json({
+                success: true,
+                data: cards,
+                count: cards.length,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages,
+                },
+            });
         } catch (err) {
             next(err);
         }

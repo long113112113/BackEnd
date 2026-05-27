@@ -26,8 +26,8 @@ const handleMqttMessage = async (topic, message) => {
         try {
             payload = JSON.parse(message.toString());
             device_id = payload.device_id;
-            if (!device_id || typeof device_id !== 'string') {
-                logger.info('[MQTT] Received scan message without device_id');
+            if (!device_id || typeof device_id !== 'string' || !/^[a-zA-Z0-9_-]{1,50}$/.test(device_id)) {
+                logger.info('[MQTT] Invalid device_id format');
                 return;
             }
 
@@ -76,7 +76,7 @@ const handleMqttMessage = async (topic, message) => {
             const seq = innerPayload.seq;
             const receivedHmac = innerPayload.hmac;
 
-            if (!card_uid || !nonce || !seq || !receivedHmac) {
+            if (!card_uid || !nonce || seq === undefined || seq === null || !receivedHmac) {
                 logger.info(`[MQTT] Missing HMAC fields from device_id=${device_id}`);
                 const errPayload = encryptError(aesKey, device_id, 'error', 'Missing HMAC fields', { card_uid });
                 mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, errPayload);

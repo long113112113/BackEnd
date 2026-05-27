@@ -33,7 +33,7 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use('/api', routes);
 
 app.get('/', (req, res) => {
-    if (config.nodeEnv === 'development') {
+    if (config.nodeEnv === 'development' || config.nodeEnv === 'test') {
         return res.json({
             message: 'IoT Attendance Server is active.',
             version: '1.0.0',

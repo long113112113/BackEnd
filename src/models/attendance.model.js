@@ -50,14 +50,19 @@ const AttendanceModel = {
         return { rows, total };
     },
 
-    findByStudentId: async (studentId) => {
+    findByStudentId: async (studentId, page = 1, limit = 50) => {
+        const offset = (page - 1) * limit;
         const result = await db.query(
-            `SELECT * FROM attendance_records 
+            `SELECT *, COUNT(*) OVER() AS __total_count 
+             FROM attendance_records 
              WHERE student_id = $1 
-             ORDER BY check_in_time DESC`,
-            [studentId]
+             ORDER BY check_in_time DESC
+             LIMIT $2 OFFSET $3`,
+            [studentId, limit, offset]
         );
-        return result.rows;
+        const total = result.rows.length > 0 ? parseInt(result.rows[0].__total_count, 10) : 0;
+        const rows = result.rows.map(({ __total_count, ...row }) => row);
+        return { rows, total };
     },
 
     hasCheckedInToday: async (studentId) => {
