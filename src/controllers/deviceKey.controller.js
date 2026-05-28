@@ -29,6 +29,10 @@ const DeviceKeyController = {
         try {
             const { keys } = req.body;
 
+            if (typeof keys !== 'string') {
+                return res.status(400).json({ success: false, message: 'keys must be a string' });
+            }
+
             const entries = keys.split(',').map(s => s.trim()).filter(Boolean);
             const results = { provisioned: [], errors: [] };
 

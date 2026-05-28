@@ -1,7 +1,7 @@
 {
   "name": "iot-attendance-backend",
   "version": "1.0.0",
-  "description": "Hệ thống điểm danh IoT - ESP32 + NFC + MQTT + PostgreSQL",
+  "description": "Diem danh IoT",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -20,10 +20,11 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "aedes": "^1.0.2",
+    "aedes": "^0.44.0",
     "argon2": "^0.44.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "csrf-csrf": "^4.0.3",
     "dotenv": "^16.5.0",
     "express": "^5.2.1",
     "express-validator": "^7.3.2",
@@ -34,6 +35,9 @@
     "mqtt": "^5.15.1",
     "pg": "^8.16.0",
     "sanitize-html": "^2.17.4"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.4.0",

@@ -8,8 +8,8 @@ const config = require('../config');
 const setTokenCookie = (res, token, maxAge) => {
     res.cookie('token', token, {
         httpOnly: true,
-        secure: config.nodeEnv === 'production',
-        sameSite: 'strict',
+        secure: true,
+        sameSite: 'none',
         path: '/',
         maxAge,
     });
@@ -18,8 +18,8 @@ const setTokenCookie = (res, token, maxAge) => {
 const setRefreshCookie = (res, token, maxAge) => {
     res.cookie('refresh_token', token, {
         httpOnly: true,
-        secure: config.nodeEnv === 'production',
-        sameSite: 'strict',
+        secure: true,
+        sameSite: 'none',
         path: '/api/auth/refresh',
         maxAge,
     });
@@ -28,14 +28,14 @@ const setRefreshCookie = (res, token, maxAge) => {
 const clearAuthCookies = (res) => {
     res.clearCookie('token', {
         httpOnly: true,
-        secure: config.nodeEnv === 'production',
-        sameSite: 'strict',
+        secure: true,
+        sameSite: 'none',
         path: '/',
     });
     res.clearCookie('refresh_token', {
         httpOnly: true,
-        secure: config.nodeEnv === 'production',
-        sameSite: 'strict',
+        secure: true,
+        sameSite: 'none',
         path: '/api/auth/refresh',
     });
 };
