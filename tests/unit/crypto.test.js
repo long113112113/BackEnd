@@ -11,6 +11,18 @@ describe('computeHmac', () => {
         expect(computeHmac(TEST_KEY, 'hello')).toBe(hmac);
     });
 
+    test('matches known expected output', () => {
+        const expectedHmac = '0d491adfb6e851c632632c12789c48fbb52a655dea79332827545a347d54c945';
+        const hmac = computeHmac(TEST_KEY, 'hello');
+        expect(hmac).toBe(expectedHmac);
+    });
+
+    test('rejects non-string message by throwing TypeError', () => {
+        expect(() => computeHmac(TEST_KEY, null)).toThrow(TypeError);
+        expect(() => computeHmac(TEST_KEY, undefined)).toThrow(TypeError);
+        expect(() => computeHmac(TEST_KEY, 123)).toThrow(TypeError);
+    });
+
     test('different message produces different output', () => {
         const a = computeHmac(TEST_KEY, 'hello');
         const b = computeHmac(TEST_KEY, 'world');
