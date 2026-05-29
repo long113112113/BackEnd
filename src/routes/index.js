@@ -1,6 +1,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { notFoundHandler } = require('../middlewares/error.middleware');
 
 const authRoutes = require('./auth.routes');
 const studentRoutes = require('./student.routes');
@@ -21,5 +22,7 @@ router.get('/health', (req, res) => {
         timestamp: new Date().toISOString(),
     });
 });
+
+router.use(notFoundHandler);
 
 module.exports = router;

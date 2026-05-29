@@ -5,18 +5,21 @@ if (!CSRF_SECRET) {
     throw new Error('CSRF_SECRET environment variable is required');
 }
 
-const { doubleCsrfProtection, generateToken } = doubleCsrf({
+const isProd = process.env.NODE_ENV === 'production';
+
+const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
     getSecret: () => CSRF_SECRET,
-    cookieName: '__Host-csrf-token',
+    getSessionIdentifier: (req) => req.ip || 'static',
+    cookieName: isProd ? '__Host-csrf-token' : 'csrf-token',
     cookieOptions: {
         httpOnly: true,
-        sameSite: 'none',
-        secure: true,
+        sameSite: isProd ? 'none' : 'lax',
+        secure: isProd,
         path: '/',
     },
     size: 64,
     ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
-    getTokenFromRequest: (req) => req.headers['x-csrf-token'],
+    getCsrfTokenFromRequest: (req) => req.headers['x-csrf-token'],
 });
 
-module.exports = { doubleCsrfProtection, generateToken };
+module.exports = { doubleCsrfProtection, generateCsrfToken };

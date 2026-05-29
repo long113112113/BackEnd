@@ -5,7 +5,7 @@ const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const config = require('./config');
 const routes = require('./routes');
-const { doubleCsrfProtection, generateToken } = require('./config/csrf');
+const { doubleCsrfProtection, generateCsrfToken } = require('./config/csrf');
 const { errorHandler, notFoundHandler } = require('./middlewares/error.middleware');
 
 const app = express();
@@ -33,11 +33,12 @@ if (config.nodeEnv === 'development') {
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-app.use('/api', routes);
 app.get('/api/csrf-token', (req, res) => {
-    res.json({ csrfToken: generateToken(req, res) });
+    res.json({ csrfToken: generateCsrfToken(req, res) });
 });
 app.use(doubleCsrfProtection);
+
+app.use('/api', routes);
 
 app.get('/', (req, res) => {
     if (config.nodeEnv === 'development' || config.nodeEnv === 'test') {
