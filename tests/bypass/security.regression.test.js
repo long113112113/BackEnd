@@ -195,7 +195,7 @@ describe('BUG-7: DELETE /api/students/:id PHẢI yêu cầu admin role', () => {
         const hashedPassword = await argon2.hash('user123456');
         await db.query(
             `INSERT INTO users (username, email, password, full_name, role, is_active)
-             VALUES ($1, $2, $3, $4, 'user', true)
+             VALUES ($1, $2, $3, $4, 'manager', true)
              ON CONFLICT (username) DO UPDATE SET password = EXCLUDED.password, is_active = true`,
             [`secuser7${ts}`, `sec7${ts}@test.com`, hashedPassword, 'Normal User']
         );

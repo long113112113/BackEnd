@@ -10,5 +10,7 @@ exports.getByDate = [
 
 exports.getByStudent = [
     param('id')
-        .isInt({ min: 1 }).withMessage('Student ID must be a positive integer'),
+        .trim()
+        .notEmpty().withMessage('Student ID is required')
+        .isString().withMessage('Student ID must be a string'),
 ];

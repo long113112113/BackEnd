@@ -1,6 +1,16 @@
 const UnknownCardModel = require('../models/unknownCard.model');
 
 const UnknownCardController = {
+    autocomplete: async (req, res, next) => {
+        try {
+            const q = req.query.q.trim();
+            const card = await UnknownCardModel.search(q);
+            res.json({ success: true, data: card });
+        } catch (err) {
+            next(err);
+        }
+    },
+
     getAll: async (req, res, next) => {
         try {
             const page = Math.max(1, parseInt(req.query.page, 10) || 1);

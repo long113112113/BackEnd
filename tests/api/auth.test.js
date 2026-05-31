@@ -12,7 +12,7 @@ beforeAll(async () => {
     const hashedPassword = await argon2.hash('test123');
     await UserModel.create({
         username: 'testuser', email: 'testuser@test.com',
-        password: hashedPassword, full_name: 'Test User', role: 'user',
+        password: hashedPassword, full_name: 'Test User', role: 'manager',
     });
 
     const res = await request(app)
@@ -44,7 +44,7 @@ describe('POST /api/auth/login', () => {
         expect(cookie).toBeDefined();
         const header = Array.isArray(cookie) ? cookie[0] : cookie;
         expect(header).toMatch(/HttpOnly/i);
-        expect(header).toMatch(/SameSite=Strict/i);
+        expect(header).toMatch(/SameSite=Lax/i);
         expect(header).toMatch(/token=/);
     });
 
@@ -116,8 +116,8 @@ describe('GET /api/auth/me', () => {
             .get('/api/auth/me')
             .set('Cookie', Array.isArray(cookie) ? cookie.join('; ') : cookie);
         expect(res.status).toBe(200);
-        expect(res.body.data).toHaveProperty('username', 'admin');
-        expect(res.body.data).not.toHaveProperty('password');
+        expect(res.body.data.user).toHaveProperty('username', 'admin');
+        expect(res.body.data.user).not.toHaveProperty('password');
     });
 
     test('returns 401 without token', async () => {
@@ -129,9 +129,11 @@ describe('GET /api/auth/me', () => {
 describe('HACKER / PENTEST: Auth API Security Checks', () => {
     test('HACKER: cookie should have Secure flag when NODE_ENV=production', async () => {
         const config = require('../../src/config');
-        const originalEnv = config.nodeEnv;
+        const originalSecure = config.cookie.secure;
+        const originalSameSite = config.cookie.sameSite;
         try {
-            config.nodeEnv = 'production';
+            config.cookie.secure = true;
+            config.cookie.sameSite = 'none';
             const res = await request(app)
                 .post('/api/auth/login')
                 .send({ username: 'admin', password: 'admin123' });
@@ -140,7 +142,8 @@ describe('HACKER / PENTEST: Auth API Security Checks', () => {
             const header = Array.isArray(cookie) ? cookie[0] : cookie;
             expect(header).toMatch(/Secure/i);
         } finally {
-            config.nodeEnv = originalEnv;
+            config.cookie.secure = originalSecure;
+            config.cookie.sameSite = originalSameSite;
         }
     });
 

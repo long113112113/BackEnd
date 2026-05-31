@@ -5,6 +5,7 @@ const StudentModel = require('../../src/models/student.model');
 const AttendanceModel = require('../../src/models/attendance.model');
 
 let studentId;
+let mssv;
 
 beforeAll(async () => {
     await initDatabase();
@@ -21,6 +22,7 @@ beforeAll(async () => {
         card_uid: 'AMDEADBEEF01',
     });
     studentId = student.id;
+    mssv = student.student_id;
 }, 30000);
 
 afterAll(async () => {
@@ -58,13 +60,13 @@ describe('AttendanceModel.hasCheckedInToday', () => {
 
 describe('AttendanceModel.findByDate', () => {
     test('returns records for today with joined student info', async () => {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
         const result = await AttendanceModel.findByDate(today);
         expect(result.rows.length).toBeGreaterThanOrEqual(1);
-        const found = result.rows.find(r => r.student_id === studentId);
+        const found = result.rows.find(r => r.student_id === mssv);
         expect(found).not.toBeUndefined();
         expect(found.full_name).toBe('Attendance Model Student');
-        expect(found.mssv).toBe('AMTEST001');
+        expect(found.student_id).toBe('AMTEST001');
     });
 
     test('returns empty array for date with no records', async () => {
@@ -75,14 +77,14 @@ describe('AttendanceModel.findByDate', () => {
 
 describe('AttendanceModel.findByStudentId', () => {
     test('returns records for given student', async () => {
-        const { rows, total } = await AttendanceModel.findByStudentId(studentId);
+        const { rows, total } = await AttendanceModel.findByStudentId(mssv);
         expect(rows.length).toBeGreaterThanOrEqual(1);
-        expect(rows[0].student_id).toBe(studentId);
+        expect(rows[0].student_id).toBe(mssv);
         expect(total).toBeGreaterThanOrEqual(1);
     });
 
     test('returns empty array for non-existent student', async () => {
-        const result = await AttendanceModel.findByStudentId(999999);
+        const result = await AttendanceModel.findByStudentId('NONEXISTENT');
         expect(result).toEqual({ rows: [], total: 0 });
     });
 });

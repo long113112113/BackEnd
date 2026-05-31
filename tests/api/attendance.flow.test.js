@@ -5,6 +5,7 @@ const db = require('../../src/config/db');
 
 let cookies;
 let studentId;
+let mssv;
 
 beforeAll(async () => {
     const loginRes = await request(app)
@@ -26,6 +27,7 @@ beforeAll(async () => {
         throw new Error(`Failed to create student: ${JSON.stringify(createRes.body)}`);
     }
     studentId = createRes.body.data.id;
+    mssv = createRes.body.data.student_id;
 }, 15000);
 
 afterAll(async () => {
@@ -37,7 +39,7 @@ const getCookie = () => cookies.join('; ');
 
 describe('Attendance end-to-end flow', () => {
     test('GET /api/attendance?date=today includes attendance record', async () => {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
         const res = await request(app)
             .get(`/api/attendance?date=${today}`)
             .set('Cookie', getCookie());
@@ -48,7 +50,7 @@ describe('Attendance end-to-end flow', () => {
 
     test('GET /api/attendance/student/:id returns records for existing student', async () => {
         const res = await request(app)
-            .get(`/api/attendance/student/${studentId}`)
+            .get(`/api/attendance/student/${mssv}`)
             .set('Cookie', getCookie());
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
@@ -57,7 +59,7 @@ describe('Attendance end-to-end flow', () => {
 
     test('GET /api/attendance/student/:id returns empty array for non-existent student', async () => {
         const res = await request(app)
-            .get('/api/attendance/student/999999')
+            .get('/api/attendance/student/NONEXISTENT')
             .set('Cookie', getCookie());
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);

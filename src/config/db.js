@@ -13,8 +13,9 @@ const pool = new Pool({
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,
 });
-pool.on('connect', () => {
-    logger.info('[Database] New connection established to Neon PostgreSQL');
+pool.on('connect', (client) => {
+    client.query("SET TIME ZONE 'Asia/Ho_Chi_Minh'");
+    logger.info('[Database] New connection established to Neon PostgreSQL (timezone: Asia/Ho_Chi_Minh)');
 });
 
 pool.on('error', (err) => {

@@ -64,8 +64,8 @@ describe('GET /api/auth/me - Bearer token authentication', () => {
             .set('Authorization', `Bearer ${token}`);
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
-        expect(res.body.data).toHaveProperty('username', 'admin');
-        expect(res.body.data).not.toHaveProperty('password');
+        expect(res.body.data.user).toHaveProperty('username', 'admin');
+        expect(res.body.data.user).not.toHaveProperty('password');
     });
 
     test('returns 401 with invalid Bearer token', async () => {

@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config');
 const UserModel = require('../models/user.model');
 
-const VALID_ROLES = ['admin', 'user'];
+const VALID_ROLES = ['admin', 'manager'];
 
 const userCache = new Map();
 const CACHE_TTL = 60_000;
@@ -72,4 +72,14 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
-module.exports = { authMiddleware, requireAdmin };
+const requireManagerOrAdmin = (req, res, next) => {
+    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+        return res.status(403).json({
+            success: false,
+            message: 'Access denied. Admin or Manager role required.',
+        });
+    }
+    next();
+};
+
+module.exports = { authMiddleware, requireAdmin, requireManagerOrAdmin };

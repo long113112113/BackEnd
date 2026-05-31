@@ -9,6 +9,8 @@ const parseExpiresInMs = (str) => {
     return num * (multipliers[unit] || 86400000);
 };
 
+const isProd = process.env.NODE_ENV === 'production';
+
 module.exports = {
     port: process.env.PORT,
     nodeEnv: process.env.NODE_ENV,
@@ -24,5 +26,9 @@ module.exports = {
         accessMaxAgeMs: parseExpiresInMs(process.env.JWT_ACCESS_EXPIRES_IN || '15m'),
         refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
         refreshMaxAgeMs: parseExpiresInMs(process.env.JWT_REFRESH_EXPIRES_IN || '7d'),
+    },
+    cookie: {
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax',
     },
 };

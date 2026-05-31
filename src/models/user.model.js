@@ -11,8 +11,8 @@ const UserModel = {
                 full_name VARCHAR(100),
                 role VARCHAR(20) DEFAULT 'admin',            
                 is_active BOOLEAN DEFAULT true,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
             );
         `;
         await db.query(sql);

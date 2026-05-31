@@ -3,7 +3,7 @@ const AttendanceModel = require('../models/attendance.model');
 const AttendanceController = {
     getByDate: async (req, res, next) => {
         try {
-            const date = req.query.date || new Date().toISOString().split('T')[0];
+            const date = req.query.date || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
             const page = Math.max(1, parseInt(req.query.page, 10) || 1);
             const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
             const { rows: records, total } = await AttendanceModel.findByDate(date, page, limit);

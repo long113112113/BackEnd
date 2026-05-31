@@ -8,8 +8,8 @@ const DeviceKeyModel = {
                 device_id VARCHAR(50) UNIQUE NOT NULL,
                 hmac_key VARCHAR(128) NOT NULL,
                 last_seq BIGINT DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
             );
         `;
         await db.query(sql);

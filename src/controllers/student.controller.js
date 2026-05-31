@@ -21,7 +21,57 @@ const StudentController = {
         try {
             const page = Math.max(1, parseInt(req.query.page, 10) || 1);
             const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
-            const { rows: students, total } = await StudentModel.findAll(page, limit);
+
+            let filters = [];
+            if (req.query.filters) {
+                try {
+                    const parsed = JSON.parse(req.query.filters);
+                    if (Array.isArray(parsed)) {
+                        filters = parsed.map(f => ({
+                            column: String(f.column || ''),
+                            operator: String(f.operator || 'eq'),
+                            value: f.value !== undefined ? f.value : null,
+                            logic: f.logic === 'or' ? 'or' : 'and',
+                        }));
+                    }
+                } catch (e) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid filters format. Expected JSON array.',
+                    });
+                }
+            }
+
+            if (filters.length > 10) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Maximum 10 filters allowed',
+                });
+            }
+
+            for (const filter of filters) {
+                if (filter.value !== null && String(filter.value).length > 200) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Filter value must not exceed 200 characters',
+                    });
+                }
+
+                if (filter.operator === 'in') {
+                    const values = String(filter.value).split(',').filter(v => v.trim());
+                    if (values.length > 50) {
+                        return res.status(400).json({
+                            success: false,
+                            message: 'Maximum 50 values allowed in IN operator',
+                        });
+                    }
+                }
+            }
+
+            const sortBy = req.query.sortBy || 'full_name';
+            const sortOrder = req.query.sortOrder === 'desc' ? 'desc' : 'asc';
+
+            const { rows: students, total } = await StudentModel.findAll(page, limit, filters, sortBy, sortOrder);
             const totalPages = Math.ceil(total / limit);
             res.json({
                 success: true,

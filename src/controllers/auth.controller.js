@@ -8,8 +8,8 @@ const config = require('../config');
 const setTokenCookie = (res, token, maxAge) => {
     res.cookie('token', token, {
         httpOnly: true,
-        secure: true,
-        sameSite: 'none',
+        secure: config.cookie.secure,
+        sameSite: config.cookie.sameSite,
         path: '/',
         maxAge,
     });
@@ -18,9 +18,9 @@ const setTokenCookie = (res, token, maxAge) => {
 const setRefreshCookie = (res, token, maxAge) => {
     res.cookie('refresh_token', token, {
         httpOnly: true,
-        secure: true,
-        sameSite: 'none',
-        path: '/api/auth/refresh',
+        secure: config.cookie.secure,
+        sameSite: config.cookie.sameSite,
+        path: '/api/auth',
         maxAge,
     });
 };
@@ -28,15 +28,15 @@ const setRefreshCookie = (res, token, maxAge) => {
 const clearAuthCookies = (res) => {
     res.clearCookie('token', {
         httpOnly: true,
-        secure: true,
-        sameSite: 'none',
+        secure: config.cookie.secure,
+        sameSite: config.cookie.sameSite,
         path: '/',
     });
     res.clearCookie('refresh_token', {
         httpOnly: true,
-        secure: true,
-        sameSite: 'none',
-        path: '/api/auth/refresh',
+        secure: config.cookie.secure,
+        sameSite: config.cookie.sameSite,
+        path: '/api/auth',
     });
 };
 
@@ -165,11 +165,13 @@ const AuthController = {
             res.json({
                 success: true,
                 data: {
-                    id: user.id,
-                    username: user.username,
-                    email: user.email,
-                    full_name: user.full_name,
-                    role: user.role,
+                    user: {
+                        id: user.id,
+                        username: user.username,
+                        email: user.email,
+                        full_name: user.full_name,
+                        role: user.role,
+                    },
                 },
             });
         } catch (err) {

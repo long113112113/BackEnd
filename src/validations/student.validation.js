@@ -1,4 +1,4 @@
-const { body, param } = require('express-validator');
+const { body, param, query } = require('express-validator');
 
 exports.createStudent = [
     body('student_id')
@@ -78,4 +78,23 @@ exports.updateStudent = [
 
 exports.studentIdParam = [
     param('id').isInt({ min: 1 }).withMessage('Student ID must be a positive integer'),
+];
+
+exports.getStudents = [
+    query('page')
+        .optional()
+        .isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+    query('limit')
+        .optional()
+        .isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+    query('sortBy')
+        .optional()
+        .isIn(['id', 'student_id', 'full_name', 'email', 'class', 'card_uid', 'phone', 'is_active', 'created_at', 'updated_at'])
+        .withMessage('Invalid sortBy column'),
+    query('sortOrder')
+        .optional()
+        .isIn(['asc', 'desc']).withMessage('sortOrder must be asc or desc'),
+    query('filters')
+        .optional()
+        .isString().withMessage('Filters must be a JSON string'),
 ];

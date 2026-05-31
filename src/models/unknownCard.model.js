@@ -8,9 +8,9 @@ const UnknownCardModel = {
                 id SERIAL PRIMARY KEY,
                 card_uid VARCHAR(50) UNIQUE NOT NULL,
                 device_id VARCHAR(50),
-                first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                first_seen TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                 seen_count INTEGER DEFAULT 1,
-                latest_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                latest_seen TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
             );
             CREATE INDEX IF NOT EXISTS idx_unknown_cards_latest_seen
                 ON unknown_cards(latest_seen DESC);
@@ -52,6 +52,18 @@ const UnknownCardModel = {
             [cardUid]
         );
         return result.rows[0];
+    },
+
+    search: async (prefix) => {
+        const result = await db.query(
+            `SELECT card_uid, device_id, seen_count, latest_seen
+             FROM unknown_cards
+             WHERE card_uid ILIKE $1
+             ORDER BY seen_count DESC, latest_seen DESC
+             LIMIT 1`,
+            [`${prefix}%`]
+        );
+        return result.rows[0] || null;
     },
 };
 

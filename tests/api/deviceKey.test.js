@@ -19,9 +19,9 @@ beforeAll(async () => {
     const result = await db.query(
         `INSERT INTO users (username, email, password, full_name, role)
          VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (username) DO UPDATE SET role = 'user'
+         ON CONFLICT (username) DO UPDATE SET role = 'manager'
          RETURNING id, username, role`,
-        ['normal_user', 'normal@test.com', hashedPassword, 'Normal User', 'user']
+        ['normal_user', 'normal@test.com', hashedPassword, 'Normal User', 'manager']
     );
     const user = result.rows[0];
     nonAdminToken = jwt.sign(

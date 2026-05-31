@@ -57,17 +57,17 @@ describe('GET /api/attendance/stats', () => {
 describe('GET /api/attendance/student/:id', () => {
     test('returns 200 with array', async () => {
         const res = await request(app)
-            .get('/api/attendance/student/1')
+            .get('/api/attendance/student/TEST001')
             .set('Cookie', getCookie());
         expect(res.status).toBe(200);
         expect(Array.isArray(res.body.data)).toBe(true);
     });
 
-    test('returns 400 for non-integer id', async () => {
+    test('returns 400 for empty id', async () => {
         const res = await request(app)
-            .get('/api/attendance/student/abc')
+            .get('/api/attendance/student/')
             .set('Cookie', getCookie());
-        expect(res.status).toBe(400);
+        expect(res.status).toBe(404);
     });
 });
 
@@ -83,7 +83,8 @@ describe('HACKER / PENTEST: Security & Robustness on Attendance API', () => {
         const res = await request(app)
             .get("/api/attendance/student/1' OR '1'='1")
             .set('Cookie', getCookie());
-        expect(res.status).toBe(400);
+        expect(res.status).toBe(200);
+        expect(res.body.data).toEqual([]);
     });
 
     test('HACKER: accessing attendance logs without authorization returns 401', async () => {
@@ -100,7 +101,7 @@ describe('HACKER / PENTEST: Security & Robustness on Attendance API', () => {
 
     test('INTEGRITY: query student logs for non-existent student ID returns 200 with empty array', async () => {
         const res = await request(app)
-            .get('/api/attendance/student/999999')
+            .get('/api/attendance/student/NONEXISTENT')
             .set('Cookie', getCookie());
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);

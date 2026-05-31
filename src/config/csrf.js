@@ -7,6 +7,8 @@ if (!CSRF_SECRET) {
 
 const isProd = process.env.NODE_ENV === 'production';
 
+const SKIP_CSRF_PATHS = ['/api/auth/refresh', '/api/auth/logout'];
+
 const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
     getSecret: () => CSRF_SECRET,
     getSessionIdentifier: (req) => req.ip || 'static',
@@ -20,6 +22,7 @@ const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
     size: 64,
     ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
     getCsrfTokenFromRequest: (req) => req.headers['x-csrf-token'],
+    skipCsrfProtection: (req) => SKIP_CSRF_PATHS.includes(req.path),
 });
 
 module.exports = { doubleCsrfProtection, generateCsrfToken };

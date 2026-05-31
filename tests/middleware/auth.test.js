@@ -24,7 +24,7 @@ beforeAll(async () => {
         `INSERT INTO users (username, email, password, full_name, role, is_active)
          VALUES ($1, $2, $3, $4, $5, true)
          RETURNING id`,
-        ['normal_user_auth_test', 'normalauth@test.com', hashedPassword, 'Normal User Auth Test', 'user']
+        ['normal_user_auth_test', 'normalauth@test.com', hashedPassword, 'Normal User Auth Test', 'manager']
     );
     normalUserId = normalUserResult.rows[0].id;
 
@@ -130,9 +130,9 @@ describe('Auth Middleware', () => {
         expect(res.status).toBe(401);
     });
 
-    test('HACKER: user role escalation - user token cannot access admin endpoints', async () => {
+    test('HACKER: manager role escalation - manager token cannot access admin-only endpoints', async () => {
         const userToken = jwt.sign(
-            { id: normalUserId, username: 'normal_user_auth_test', role: 'user' },
+            { id: normalUserId, username: 'normal_user_auth_test', role: 'manager' },
             config.jwt.secret,
             { expiresIn: '1h' }
         );

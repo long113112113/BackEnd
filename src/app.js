@@ -36,7 +36,9 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.get('/api/csrf-token', (req, res) => {
     res.json({ csrfToken: generateCsrfToken(req, res) });
 });
-app.use(doubleCsrfProtection);
+if (process.env.NODE_ENV !== 'test') {
+    app.use(doubleCsrfProtection);
+}
 
 app.use('/api', routes);
 

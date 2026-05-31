@@ -1,5 +1,8 @@
 const db = require('../config/db');
 
+/** Explicit column list to avoid leaking internal fields like is_active via SELECT *. */
+const STUDENT_COLUMNS = 'id, student_id, full_name, class, card_uid, email, phone, avatar_url, created_at, updated_at';
+
 const StudentModel = {
     createTable: async () => {
         const sql = `
@@ -13,35 +16,112 @@ const StudentModel = {
                 phone VARCHAR(20),
                 avatar_url TEXT,
                 is_active BOOLEAN DEFAULT true,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
             );
         `;
         await db.query(sql);
     },
     findByCardUID: async (cardUID) => {
         const result = await db.query(
-            'SELECT * FROM students WHERE card_uid = $1 AND is_active = true',
+            `SELECT ${STUDENT_COLUMNS} FROM students WHERE card_uid = $1 AND is_active = true`,
             [cardUID]
         );
         return result.rows[0] || null;
     },
 
-    findAll: async (page = 1, limit = 50) => {
+    findAll: async (page = 1, limit = 50, filters = [], sortBy = 'full_name', sortOrder = 'asc') => {
+        const ALLOWED_COLUMNS = new Set([
+            'id', 'student_id', 'full_name', 'email', 'class',
+            'card_uid', 'phone', 'is_active', 'created_at', 'updated_at'
+        ]);
+
+        const OPERATOR_MAP = {
+            eq: '=',
+            neq: '<>',
+            gt: '>',
+            gte: '>=',
+            lt: '<',
+            lte: '<=',
+            like: 'LIKE',
+            ilike: 'ILIKE',
+            not_like: 'NOT LIKE',
+            in: 'IN',
+            is_null: 'IS NULL',
+            is_not_null: 'IS NOT NULL',
+        };
+
+        const params = [];
+        let paramIndex = 1;
+
+        // Collect filter conditions separately to wrap in parentheses,
+        // preventing OR filters from bypassing the is_active = true guard.
+        const filterConditions = [];
+
+        for (const filter of filters) {
+            const { column, operator, value, logic } = filter;
+
+            if (!ALLOWED_COLUMNS.has(column)) continue;
+
+            const sqlOp = OPERATOR_MAP[operator];
+            if (!sqlOp) continue;
+
+            let condition;
+            if (operator === 'is_null' || operator === 'is_not_null') {
+                condition = `"${column}" ${sqlOp}`;
+            } else if (operator === 'in') {
+                const values = String(value).split(',').map(v => v.trim()).filter(Boolean);
+                if (values.length === 0) continue;
+                const placeholders = values.map(() => `$${paramIndex++}`);
+                condition = `"${column}" IN (${placeholders.join(', ')})`;
+                params.push(...values);
+            } else if (operator === 'like' || operator === 'ilike' || operator === 'not_like') {
+                condition = `"${column}" ${sqlOp} $${paramIndex++}`;
+                params.push(`%${value}%`);
+            } else {
+                condition = `"${column}" ${sqlOp} $${paramIndex++}`;
+                params.push(value);
+            }
+
+            // First condition stands alone; subsequent ones are joined by AND/OR.
+            if (filterConditions.length === 0) {
+                filterConditions.push(condition);
+            } else {
+                const connector = logic === 'or' ? 'OR' : 'AND';
+                filterConditions.push(`${connector} ${condition}`);
+            }
+        }
+
+        // Wrap user filters in parentheses so OR never bypasses is_active = true.
+        let whereClause = 'WHERE is_active = true';
+        if (filterConditions.length > 0) {
+            whereClause += ` AND (${filterConditions.join(' ')})`;
+        }
+
+        const validSortBy = ALLOWED_COLUMNS.has(sortBy) ? sortBy : 'full_name';
+        const validSortOrder = sortOrder === 'desc' ? 'DESC' : 'ASC';
+
         const offset = (page - 1) * limit;
-        const result = await db.query(
-            `SELECT *, COUNT(*) OVER() AS __total_count 
-             FROM students WHERE is_active = true 
-             ORDER BY full_name ASC LIMIT $1 OFFSET $2`,
-            [limit, offset]
-        );
+        params.push(limit, offset);
+        const limitParam = paramIndex++;
+        const offsetParam = paramIndex;
+
+        const sql = `
+            SELECT ${STUDENT_COLUMNS}, COUNT(*) OVER() AS __total_count 
+            FROM students 
+            ${whereClause}
+            ORDER BY "${validSortBy}" ${validSortOrder} 
+            LIMIT $${limitParam} OFFSET $${offsetParam}
+        `;
+
+        const result = await db.query(sql, params);
         const total = result.rows.length > 0 ? parseInt(result.rows[0].__total_count, 10) : 0;
         const rows = result.rows.map(({ __total_count, ...row }) => row);
         return { rows, total };
     },
     findById: async (id) => {
         const result = await db.query(
-            'SELECT * FROM students WHERE id = $1 AND is_active = true',
+            `SELECT ${STUDENT_COLUMNS} FROM students WHERE id = $1 AND is_active = true`,
             [id]
         );
         return result.rows[0] || null;
@@ -52,7 +132,7 @@ const StudentModel = {
         const result = await db.query(
             `INSERT INTO students (student_id, full_name, class, card_uid, email, phone)
              VALUES ($1, $2, $3, $4, $5, $6)
-             RETURNING *`,
+             RETURNING ${STUDENT_COLUMNS}`,
             [student_id, full_name, className, card_uid, email, phone]
         );
         return result.rows[0];
@@ -62,24 +142,27 @@ const StudentModel = {
         const ALLOWED_COLUMNS = new Set(['full_name', 'class', 'card_uid', 'email', 'phone']);
         const entries = Object.entries(data).filter(([col]) => ALLOWED_COLUMNS.has(col));
         if (entries.length === 0) {
-            const result = await db.query('SELECT * FROM students WHERE id = $1', [id]);
+            const result = await db.query(
+                `SELECT ${STUDENT_COLUMNS} FROM students WHERE id = $1 AND is_active = true`,
+                [id]
+            );
             return result.rows[0] || null;
         }
         const setClauses = entries.map(([col], i) => `"${col}" = $${i + 1}`);
         const values = entries.map(([, val]) => val);
         values.push(id);
         const result = await db.query(
-            `UPDATE students SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${values.length} RETURNING *`,
+            `UPDATE students SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${values.length} AND is_active = true RETURNING ${STUDENT_COLUMNS}`,
             values
         );
         return result.rows[0] || null;
     },
     delete: async (id) => {
         const result = await db.query(
-            'UPDATE students SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *',
+            'UPDATE students SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND is_active = true RETURNING id',
             [id]
         );
-        return result.rows[0];
+        return result.rows[0] || null;
     },
 };
 

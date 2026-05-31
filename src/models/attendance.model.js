@@ -8,19 +8,17 @@ const AttendanceModel = {
                 id SERIAL PRIMARY KEY,
                 student_id INTEGER REFERENCES students(id),
                 card_uid VARCHAR(50) NOT NULL,             
-                check_in_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                check_in_time TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                 device_id VARCHAR(50),                  
                 status VARCHAR(20) DEFAULT 'present',       
                 note TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
             );
             
             CREATE INDEX IF NOT EXISTS idx_attendance_student 
                 ON attendance_records(student_id);
             CREATE INDEX IF NOT EXISTS idx_attendance_date 
                 ON attendance_records(check_in_time);
-            CREATE INDEX IF NOT EXISTS idx_attendance_check_date
-                ON attendance_records(DATE(check_in_time));
         `;
         await db.query(sql);
     },
@@ -36,7 +34,8 @@ const AttendanceModel = {
     findByDate: async (date, page = 1, limit = 50) => {
         const offset = (page - 1) * limit;
         const result = await db.query(
-            `SELECT ar.*, s.full_name, s.student_id as mssv, s.class,
+            `SELECT ar.id, ar.card_uid, ar.check_in_time, ar.device_id, ar.status, ar.note, ar.created_at,
+                    s.student_id, s.full_name, s.class,
                     COUNT(*) OVER() AS __total_count
              FROM attendance_records ar
              JOIN students s ON ar.student_id = s.id
@@ -53,10 +52,13 @@ const AttendanceModel = {
     findByStudentId: async (studentId, page = 1, limit = 50) => {
         const offset = (page - 1) * limit;
         const result = await db.query(
-            `SELECT *, COUNT(*) OVER() AS __total_count 
-             FROM attendance_records 
-             WHERE student_id = $1 
-             ORDER BY check_in_time DESC
+            `SELECT ar.id, ar.card_uid, ar.check_in_time, ar.device_id, ar.status, ar.note, ar.created_at,
+                    s.student_id, s.full_name, s.class,
+                    COUNT(*) OVER() AS __total_count
+             FROM attendance_records ar
+             JOIN students s ON ar.student_id = s.id
+             WHERE s.student_id = $1
+             ORDER BY ar.check_in_time DESC
              LIMIT $2 OFFSET $3`,
             [studentId, limit, offset]
         );
