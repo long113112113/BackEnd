@@ -1,0 +1,4 @@
+## 2025-02-28 - Unhandled Exception (DoS) via `crypto.timingSafeEqual` Buffer Length Mismatch
+**Vulnerability:** Node.js `crypto.timingSafeEqual(a, b)` throws a `RangeError: Input buffers must have the same byte length` if the two buffers passed to it have different lengths. In `src/services/mqtt.handler.js`, this could allow a malicious actor to crash the application by sending an HMAC payload that, when parsed, results in a buffer of a different length than the expected HMAC hash.
+**Learning:** Functions designed for security like `crypto.timingSafeEqual` often have strict type and size requirements that can cause application crashes if inputs are not properly validated beforehand.
+**Prevention:** Always explicitly check that lengths match (`a.length === b.length`) before calling `crypto.timingSafeEqual(a, b)` or similar cryptographic functions that expect fixed-size or identically sized inputs.
