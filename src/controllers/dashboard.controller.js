@@ -37,6 +37,7 @@ const evictOldestPoller = () => {
         clearInterval(interval);
         activePollers.delete(oldestKey);
         lastDataCache.delete(oldestKey);
+        SSE_Broadcast.disconnectChannel(oldestKey, 'poller_evicted');
         logger.info(`[SSE] Evicted oldest poller for ${oldestKey}`);
     }
 };

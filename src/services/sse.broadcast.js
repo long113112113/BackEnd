@@ -52,6 +52,21 @@ const SSE_Broadcast = {
             channelSet.delete(res);
         }
     },
+
+    disconnectChannel: (channel, reason = 'channel_closed') => {
+        const channelSet = channels.get(channel);
+        if (!channelSet || channelSet.size === 0) return;
+
+        const payload = `event: error\ndata: ${JSON.stringify({ message: reason })}\n\n`;
+        for (const res of channelSet) {
+            try {
+                res.write(payload);
+                res.end();
+            } catch {}
+        }
+        channels.delete(channel);
+        logger.info(`[SSE Broadcast] Disconnected all clients from channel '${channel}' (reason: ${reason})`);
+    },
 };
 
 module.exports = SSE_Broadcast;
