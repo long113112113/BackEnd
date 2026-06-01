@@ -1,10 +1,14 @@
 const { Pool } = require('pg');
 const logger = require('../utils/logger');
 
-const connectionString = process.env.DATABASE_URL;
+let connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
     throw new Error('DATABASE_URL environment variable is required');
 }
+
+// Append timezone option at connection handshake to avoid overlapping queries during startup
+const separator = connectionString.includes('?') ? '&' : '?';
+connectionString += `${separator}options=-c%20timezone=Asia/Ho_Chi_Minh`;
 
 const sslConfig = process.env.DB_SSL_REJECT_UNAUTHORIZED === 'false'
     ? { rejectUnauthorized: false }
@@ -18,7 +22,6 @@ const pool = new Pool({
     connectionTimeoutMillis: 5000,
 });
 pool.on('connect', (client) => {
-    client.query("SET TIME ZONE 'Asia/Ho_Chi_Minh'");
     logger.info('[Database] New connection established to Neon PostgreSQL (timezone: Asia/Ho_Chi_Minh)');
 });
 
