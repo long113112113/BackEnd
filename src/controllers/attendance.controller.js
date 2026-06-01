@@ -69,7 +69,12 @@ const groupByClass = (records) => {
 const AttendanceController = {
     getByDate: async (req, res, next) => {
         try {
-            const { start_date, end_date, student_id, class: className, groupBy } = req.query;
+            // Defensive check: ensure query parameters are strings to prevent type confusion / prototype pollution.
+            const start_date = typeof req.query.start_date === 'string' ? req.query.start_date : undefined;
+            const end_date = typeof req.query.end_date === 'string' ? req.query.end_date : undefined;
+            const student_id = typeof req.query.student_id === 'string' ? req.query.student_id : undefined;
+            const className = typeof req.query.class === 'string' ? req.query.class : undefined;
+            const groupBy = typeof req.query.groupBy === 'string' ? req.query.groupBy : undefined;
             const hasAdvancedFilters = start_date || end_date || student_id || className || groupBy;
 
             if (hasAdvancedFilters) {
@@ -103,7 +108,9 @@ const AttendanceController = {
                 });
             }
 
-            const date = req.query.date || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+            // Ensure date query parameter is a string to prevent type-confusion SQL errors.
+            const dateQuery = typeof req.query.date === 'string' ? req.query.date : undefined;
+            const date = dateQuery || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
             const page = Math.max(1, parseInt(req.query.page, 10) || 1);
             const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
             const { rows: records, total } = await AttendanceModel.findByDate(date, page, limit);
@@ -155,7 +162,12 @@ const AttendanceController = {
     },
     exportFile: async (req, res, next) => {
         try {
-            const { format, start_date, end_date, student_id, class: className } = req.query;
+            // Defensive check: ensure query parameters are strings to prevent type-confusion or crash attacks.
+            const format = typeof req.query.format === 'string' ? req.query.format : undefined;
+            const start_date = typeof req.query.start_date === 'string' ? req.query.start_date : undefined;
+            const end_date = typeof req.query.end_date === 'string' ? req.query.end_date : undefined;
+            const student_id = typeof req.query.student_id === 'string' ? req.query.student_id : undefined;
+            const className = typeof req.query.class === 'string' ? req.query.class : undefined;
             const exportFormat = format === 'csv' ? 'csv' : 'xlsx';
 
             if (start_date && end_date) {

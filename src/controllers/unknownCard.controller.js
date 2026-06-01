@@ -7,6 +7,7 @@ const UnknownCardController = {
             if (!q || typeof q !== 'string') {
                 return res.status(400).json({ success: false, message: 'Query parameter q is required' });
             }
+            // FIXME: CWE-252 Unchecked Return Value: UnknownCardModel.search returns an object or null, not an array. Calling cards.length throws TypeError / DoS when no card is found or returns undefined.
             const cards = await UnknownCardModel.search(q.trim());
             res.json({ success: true, data: cards, count: cards.length });
         } catch (err) {

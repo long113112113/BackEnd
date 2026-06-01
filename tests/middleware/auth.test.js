@@ -5,12 +5,15 @@ const db = require('../../src/config/db');
 const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
 const config = require('../../src/config');
+const { resetAttempts } = require('../../src/utils/loginAttempts');
 
 let validToken;
 let disabledUserId;
 let normalUserId;
 
 beforeAll(async () => {
+    resetAttempts('::ffff:127.0.0.1');
+    resetAttempts('127.0.0.1');
     const hashedPassword = await argon2.hash('admin123');
     const result = await db.query(
         `INSERT INTO users (username, email, password, full_name, role, is_active)

@@ -54,8 +54,9 @@ const AuthController = {
     login: async (req, res, next) => {
         try {
             const { username, password } = req.body;
+            const ip = req.ip;
 
-            const lockoutCheck = checkLockout(username);
+            const lockoutCheck = checkLockout(ip);
             if (lockoutCheck.locked) {
                 return res.status(429).json({
                     success: false,
@@ -66,7 +67,7 @@ const AuthController = {
 
             const user = await UserModel.findByUsername(username);
             if (!user) {
-                recordFailure(username);
+                recordFailure(ip);
                 return res.status(401).json({
                     success: false,
                     message: 'Invalid username or password',
@@ -75,14 +76,14 @@ const AuthController = {
 
             const isMatch = await argon2.verify(user.password, password);
             if (!isMatch) {
-                recordFailure(username);
+                recordFailure(ip);
                 return res.status(401).json({
                     success: false,
                     message: 'Invalid username or password',
                 });
             }
 
-            resetAttempts(username);
+            resetAttempts(ip);
 
             const accessToken = generateAccessToken(user);
             const { rawToken: refreshToken } = await RefreshTokenModel.create(

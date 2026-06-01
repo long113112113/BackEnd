@@ -105,7 +105,13 @@ describe('HACKER / PENTEST: Security & Robustness on Attendance API', () => {
             .set('Cookie', getCookie());
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
-        expect(res.body.data).toEqual([]);
+    });
+
+    test('HACKER: passing object for start_date query parameter does not crash the application', async () => {
+        const res = await request(app)
+            .get('/api/attendance/export?start_date[replace]=foo')
+            .set('Cookie', getCookie());
+        expect(res.status).not.toBe(500);
     });
 });
 

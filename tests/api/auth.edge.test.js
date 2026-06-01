@@ -1,10 +1,18 @@
 require('dotenv').config();
 const request = require('supertest');
 const app = require('../../src/app');
+const { resetAttempts } = require('../../src/utils/loginAttempts');
 
 let cookies;
 
+beforeEach(() => {
+    resetAttempts('::ffff:127.0.0.1');
+    resetAttempts('127.0.0.1');
+});
+
 beforeAll(async () => {
+    resetAttempts('::ffff:127.0.0.1');
+    resetAttempts('127.0.0.1');
     const res = await request(app)
         .post('/api/auth/login')
         .send({ username: 'admin', password: 'admin123' });

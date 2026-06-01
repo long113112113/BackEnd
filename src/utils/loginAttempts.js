@@ -19,8 +19,8 @@ const cleanup = () => {
 const cleanupInterval = setInterval(cleanup, CLEANUP_INTERVAL_MS);
 cleanupInterval.unref();
 
-const checkLockout = (username) => {
-    const data = attempts.get(username);
+const checkLockout = (ip) => {
+    const data = attempts.get(ip);
     if (!data) return { locked: false };
 
     if (data.lockUntil && data.lockUntil > Date.now()) {
@@ -29,15 +29,15 @@ const checkLockout = (username) => {
     }
 
     if (data.lockUntil && data.lockUntil <= Date.now()) {
-        attempts.delete(username);
+        attempts.delete(ip);
         return { locked: false };
     }
 
     return { locked: false };
 };
 
-const recordFailure = (username) => {
-    const data = attempts.get(username) || { count: 0, lockUntil: null, lastAttempt: 0 };
+const recordFailure = (ip) => {
+    const data = attempts.get(ip) || { count: 0, lockUntil: null, lastAttempt: 0 };
     data.count += 1;
     data.lastAttempt = Date.now();
 
@@ -45,11 +45,11 @@ const recordFailure = (username) => {
         data.lockUntil = Date.now() + LOCK_DURATION_MS;
     }
 
-    attempts.set(username, data);
+    attempts.set(ip, data);
 };
 
-const resetAttempts = (username) => {
-    attempts.delete(username);
+const resetAttempts = (ip) => {
+    attempts.delete(ip);
 };
 
 module.exports = { checkLockout, recordFailure, resetAttempts };
