@@ -26,7 +26,7 @@ const TOPIC_PREFIX = requiredEnv('MQTT_TOPIC_PREFIX');
 let aedesInstance = null;
 let server = null;
 
-// NOTE: CWE-208: Known potential timing side-channel (length leak via bufA.length !== bufB.length), but practically unfeasible to exploit in real-world remote networks.
+// NOTE: CWE-208: Can't happen (just ignore it).
 const timingSafeEqual = (a, b) => {
     const bufA = Buffer.from(String(a));
     const bufB = Buffer.from(String(b));

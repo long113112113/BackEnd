@@ -36,6 +36,7 @@ const DeviceKeyController = {
 
             const entries = keys.split(',').map(s => s.trim()).filter(Boolean);
             const results = { provisioned: [], errors: [] };
+            const toUpsert = [];
 
             for (const entry of entries) {
                 const colonIdx = entry.indexOf(':');
@@ -53,6 +54,7 @@ const DeviceKeyController = {
                 }
 
                 results.provisioned.push(device_id);
+                toUpsert.push({ device_id, hmac_key });
             }
 
             if (results.errors.length > 0 && results.provisioned.length === 0) {
@@ -60,11 +62,7 @@ const DeviceKeyController = {
             }
 
             await client.query('BEGIN');
-            // FIXME: CWE-252 Unchecked Return Value: entries.find returns undefined if there are spaces around the colon (e.g. "ESP32 : key"), throwing TypeError and crashing the server inside a database transaction.
-            for (const device_id of results.provisioned) {
-                const entry = entries.find(e => e.startsWith(`${device_id}:`));
-                const colonIdx = entry.indexOf(':');
-                const hmac_key = entry.slice(colonIdx + 1).trim();
+            for (const { device_id, hmac_key } of toUpsert) {
                 await DeviceKeyModel.upsert({ device_id, hmac_key }, client);
             }
             await client.query('COMMIT');
