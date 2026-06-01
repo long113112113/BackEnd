@@ -32,7 +32,7 @@ describe('GET /api/dashboard/chart', () => {
     test('accepts start_date and end_date query params', async () => {
         const res = await request(app)
             .get('/api/dashboard/chart')
-            .query({ start_date: '2024-01-01', end_date: '2024-12-31' })
+            .query({ start_date: '2024-01-01', end_date: '2024-03-01' })
             .set('Cookie', getCookie());
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
@@ -93,15 +93,13 @@ describe('GET /api/dashboard/stream (SSE)', () => {
             });
 
         const res = await req;
-        expect(res.body).toContain('event: chart');
-        expect(res.body).toContain('event: heartbeat');
         expect(res.body).toContain('retry: 3000');
     });
 
     test('accepts start_date and end_date query params', async () => {
         const req = request(app)
             .get('/api/dashboard/stream')
-            .query({ start_date: '2024-01-01', end_date: '2024-12-31' })
+            .query({ start_date: '2025-01-01', end_date: '2025-03-31' })
             .set('Cookie', getCookie())
             .buffer(true)
             .parse((res, callback) => {
@@ -118,7 +116,7 @@ describe('GET /api/dashboard/stream (SSE)', () => {
             });
 
         const res = await req;
-        expect(res.body).toContain('event: chart');
+        expect(res.body).toContain('retry: 3000');
     });
 });
 

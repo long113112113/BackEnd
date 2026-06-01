@@ -3,9 +3,12 @@ const UnknownCardModel = require('../models/unknownCard.model');
 const UnknownCardController = {
     autocomplete: async (req, res, next) => {
         try {
-            const q = req.query.q.trim();
-            const card = await UnknownCardModel.search(q);
-            res.json({ success: true, data: card });
+            const q = req.query.q;
+            if (!q || typeof q !== 'string') {
+                return res.status(400).json({ success: false, message: 'Query parameter q is required' });
+            }
+            const cards = await UnknownCardModel.search(q.trim());
+            res.json({ success: true, data: cards, count: cards.length });
         } catch (err) {
             next(err);
         }

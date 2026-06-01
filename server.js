@@ -19,6 +19,20 @@ let shuttingDown = false;
 
 const SHUTDOWN_TIMEOUT_MS = 10000;
 
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error('[Server] Unhandled Rejection at:', promise, 'reason:', reason);
+    if (!shuttingDown) {
+        gracefulShutdown('UNHANDLED_REJECTION');
+    }
+});
+
+process.on('uncaughtException', (err) => {
+    logger.error('[Server] Uncaught Exception:', err.message);
+    if (!shuttingDown) {
+        gracefulShutdown('UNCAUGHT_EXCEPTION');
+    }
+});
+
 const gracefulShutdown = async (signal) => {
     if (shuttingDown) return;
     shuttingDown = true;

@@ -11,9 +11,12 @@ const parseExpiresInMs = (str) => {
 
 const isProd = process.env.NODE_ENV === 'production';
 
-// Strict Environment Variable Validation
 if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET environment variable is required');
+}
+
+if (isProd && process.env.JWT_SECRET.length < 32) {
+    throw new Error('JWT_SECRET must be at least 32 characters in production');
 }
 
 if (isProd) {
@@ -27,9 +30,17 @@ if (isProd) {
 
 const port = process.env.PORT || 3000;
 
+const parseTrustProxy = (val) => {
+    if (!val || val === 'false') return false;
+    if (val === 'true') return true;
+    const num = parseInt(val, 10);
+    return !isNaN(num) ? num : false;
+};
+
 module.exports = {
     port,
     nodeEnv: process.env.NODE_ENV || 'development',
+    trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
     clientOrigins: (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
         .split(',')
         .map(s => s.trim())

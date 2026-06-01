@@ -46,18 +46,6 @@ describe('AttendanceModel.create', () => {
     });
 });
 
-describe('AttendanceModel.hasCheckedInToday', () => {
-    test('returns true for student who checked in today', async () => {
-        const checked = await AttendanceModel.hasCheckedInToday(studentId);
-        expect(checked).toBe(true);
-    });
-
-    test('returns false for student without check-in', async () => {
-        const checked = await AttendanceModel.hasCheckedInToday(999999);
-        expect(checked).toBe(false);
-    });
-});
-
 describe('AttendanceModel.findByDate', () => {
     test('returns records for today with joined student info', async () => {
         const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });

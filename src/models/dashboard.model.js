@@ -1,5 +1,8 @@
 const db = require('../config/db');
 
+const CACHE_TTL_MS = 5000;
+const chartCache = new Map();
+
 function buildWhereClause(column, startDate, endDate) {
     const params = [];
     const conditions = [];
@@ -23,6 +26,12 @@ function buildWhereClause(column, startDate, endDate) {
 
 const DashboardModel = {
     getChartData: async (startDate, endDate) => {
+        const cacheKey = `${startDate || 'all'}:${endDate || 'all'}`;
+        const cached = chartCache.get(cacheKey);
+        if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+            return cached.data;
+        }
+
         const checkinsMeta = buildWhereClause("ar.check_in_time AT TIME ZONE 'Asia/Ho_Chi_Minh'", startDate, endDate);
         const newStudentsMeta = buildWhereClause("s.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh'", startDate, endDate);
         const anomaliesMeta = buildWhereClause("uc.latest_seen AT TIME ZONE 'Asia/Ho_Chi_Minh'", startDate, endDate);
@@ -89,7 +98,15 @@ const DashboardModel = {
         const newStudents = dates.map(date => ({ date, count: newStudentsMap.get(date) || 0 }));
         const anomalies = dates.map(date => ({ date, count: anomaliesMap.get(date) || 0 }));
 
-        return { checkins, newStudents, anomalies };
+        const result = { checkins, newStudents, anomalies };
+        chartCache.set(cacheKey, { data: result, ts: Date.now() });
+
+        if (chartCache.size > 50) {
+            const oldestKey = chartCache.keys().next().value;
+            chartCache.delete(oldestKey);
+        }
+
+        return result;
     },
 };
 

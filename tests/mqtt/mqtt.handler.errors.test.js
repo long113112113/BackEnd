@@ -163,11 +163,11 @@ describe('MQTT Message Handler - Edge Cases', () => {
             hmac_key: TEST_KEY,
             last_seq: 5000,
         });
-        const updateSeqSpy = vi.spyOn(DeviceKeyModel, 'updateLastSeq').mockResolvedValue(null);
+        const updateSeqSpy = vi.spyOn(DeviceKeyModel, 'updateLastSeqAtomic').mockResolvedValue(true);
         vi.spyOn(StudentModel, 'findByCardUID').mockResolvedValue({
             id: 99, student_id: 'NVS001', full_name: 'NVS Reset', class: '20DTHX1', card_uid: 'A1B2C3D4',
         });
-        vi.spyOn(AttendanceModel, 'createIfNotCheckedInToday').mockResolvedValue({ id: 99 });
+        vi.spyOn(AttendanceModel, 'createIfCooldownPassed').mockResolvedValue({ id: 99 });
 
         const nonce = 'z'.repeat(32);
         const card_uid = 'A1B2C3D4';

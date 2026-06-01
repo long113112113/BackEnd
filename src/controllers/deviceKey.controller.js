@@ -18,7 +18,8 @@ const DeviceKeyController = {
         try {
             const { device_id, hmac_key } = req.body;
             const device = await DeviceKeyModel.upsert({ device_id, hmac_key });
-            res.status(201).json({ success: true, data: device });
+            const { hmac_key: _, ...safeDevice } = device;
+            res.status(201).json({ success: true, data: safeDevice });
         } catch (err) {
             next(err);
         }
@@ -38,6 +39,11 @@ const DeviceKeyController = {
 
             for (const entry of entries) {
                 const colonIdx = entry.indexOf(':');
+                if (colonIdx === -1) {
+                    results.errors.push({ entry, reason: 'Missing colon separator' });
+                    continue;
+                }
+
                 const device_id = entry.slice(0, colonIdx).trim();
                 const hmac_key = entry.slice(colonIdx + 1).trim();
 

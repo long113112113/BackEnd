@@ -191,7 +191,7 @@ const AttendanceController = {
                     escapeCsv(r.status),
                 ].join(','));
 
-                const csv = [header, ...rows].join('\n');
+                const csv = '\ufeff' + [header, ...rows].join('\n');
                 const filename = `attendance_${safeStart}_to_${safeEnd}.csv`;
                 res.setHeader('Content-Type', 'text/csv; charset=utf-8');
                 res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -276,14 +276,14 @@ const AttendanceController = {
             });
             totalRow.font = { bold: true };
 
-            const buffer = await workbook.xlsx.writeBuffer();
             const filename = `attendance_${safeStart}_to_${safeEnd}.xlsx`;
             res.setHeader(
                 'Content-Type',
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             );
             res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-            res.send(Buffer.from(buffer));
+            await workbook.xlsx.write(res);
+            res.end();
         } catch (err) {
             next(err);
         }

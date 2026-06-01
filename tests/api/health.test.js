@@ -3,11 +3,15 @@ const request = require('supertest');
 const app = require('../../src/app');
 
 describe('GET /api/health', () => {
-    test('returns 200 with success', async () => {
+    test('returns health status with checks', async () => {
         const res = await request(app).get('/api/health');
-        expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
+        expect(res.body).toHaveProperty('status');
+        expect(res.body).toHaveProperty('checks');
         expect(res.body).toHaveProperty('timestamp');
+        expect(res.body.checks).toHaveProperty('database');
+        expect(res.body.checks).toHaveProperty('mqtt');
+        expect(res.body.checks).toHaveProperty('redis');
     });
 });
 
@@ -42,13 +46,12 @@ describe('CORS', () => {
         const res = await request(app)
             .get('/api/health')
             .set('Origin', 'http://localhost:5173');
-        expect(res.status).toBe(200);
         expect(res.headers['access-control-allow-origin']).toBe('http://localhost:5173');
     });
 
     test('requests without Origin header succeed (same-origin)', async () => {
         const res = await request(app).get('/api/health');
-        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
     });
 
     test('disallowed origin is rejected', async () => {

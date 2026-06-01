@@ -5,10 +5,12 @@ const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const config = require('./config');
 const routes = require('./routes');
-const { doubleCsrfProtection, generateCsrfToken } = require('./config/csrf');
+const { doubleCsrfProtection, generateCsrfToken, ensureSessionId } = require('./config/csrf');
 const { errorHandler, notFoundHandler } = require('./middlewares/error.middleware');
 
 const app = express();
+
+app.set('trust proxy', config.trustProxy);
 
 app.use(helmet());
 app.use(cors({
@@ -37,6 +39,7 @@ app.get('/api/csrf-token', (req, res) => {
     res.json({ csrfToken: generateCsrfToken(req, res) });
 });
 if (process.env.NODE_ENV !== 'test') {
+    app.use(ensureSessionId);
     app.use(doubleCsrfProtection);
 }
 

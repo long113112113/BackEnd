@@ -53,7 +53,7 @@ const UnknownCardModel = {
         );
         return result.rows[0];
     },
-
+    //Return for the UI design, NOT A BUG
     search: async (prefix) => {
         const result = await db.query(
             `SELECT card_uid, device_id, seen_count, latest_seen

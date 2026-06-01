@@ -28,7 +28,7 @@ describe('MQTT Message Handler - Attendance Logic', () => {
             hmac_key: TEST_KEY,
             last_seq: 10,
         });
-        const updateLastSeqSpy = vi.spyOn(DeviceKeyModel, 'updateLastSeq').mockResolvedValue(null);
+        const updateLastSeqSpy = vi.spyOn(DeviceKeyModel, 'updateLastSeqAtomic').mockResolvedValue(true);
 
         const nonce = 'e'.repeat(32);
         const card_uid = 'A1B2C3D4';
@@ -145,7 +145,8 @@ describe('MQTT Message Handler - Attendance Logic', () => {
     });
 
     test('Should process device status report topic successfully without crashing', async () => {
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const logger = require('../../src/utils/logger');
+        const logSpy = vi.spyOn(logger, 'info').mockImplementation(() => {});
         await handleMqttMessage('hutech_lms/device/status', Buffer.from('ESP32-01: ONLINE, battery=98%'));
         expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('[MQTT] Device status: ESP32-01: ONLINE'));
         logSpy.mockRestore();

@@ -12,14 +12,23 @@ const initRedis = async () => {
 
     try {
         const client = new Redis(url, {
-            maxRetriesPerRequest: 1,
+            maxRetriesPerRequest: 3,
             lazyConnect: true,
-            retryStrategy: () => null,
+            retryStrategy: (times) => {
+                if (times > 3) {
+                    logger.warn('[Redis] Max retries reached. Giving up.');
+                    return null;
+                }
+                const delay = Math.min(times * 500, 2000);
+                logger.info(`[Redis] Retry attempt ${times} in ${delay}ms`);
+                return delay;
+            },
         });
 
         await client.connect();
         await client.ping();
 
+        redisClient = client;
         logger.info('[Redis] Connected successfully.');
         return client;
     } catch (err) {

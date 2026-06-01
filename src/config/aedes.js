@@ -1,5 +1,6 @@
 const os = require('os');
 const net = require('net');
+const crypto = require('crypto');
 const logger = require('../utils/logger');
 
 const requiredEnv = (name) => {
@@ -12,6 +13,10 @@ const requiredEnv = (name) => {
 };
 
 const MQTT_PORT = parseInt(process.env.MQTT_PORT, 10);
+if (isNaN(MQTT_PORT) || MQTT_PORT < 1 || MQTT_PORT > 65535) {
+    logger.error(`[MQTT] Invalid MQTT_PORT: ${process.env.MQTT_PORT}. Must be a number between 1 and 65535.`);
+    process.exit(1);
+}
 const MQTT_USERNAME = requiredEnv('MQTT_USERNAME');
 const MQTT_PASSWORD = requiredEnv('MQTT_PASSWORD');
 const MQTT_INTERNAL_USERNAME = requiredEnv('MQTT_INTERNAL_USERNAME');
@@ -21,13 +26,20 @@ const TOPIC_PREFIX = requiredEnv('MQTT_TOPIC_PREFIX');
 let aedesInstance = null;
 let server = null;
 
+const timingSafeEqual = (a, b) => {
+    const bufA = Buffer.from(String(a));
+    const bufB = Buffer.from(String(b));
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+};
+
 const start = async () => {
     const { Aedes } = await import('aedes');
     aedesInstance = await Aedes.createBroker({
         authenticate: (client, username, password, callback) => {
             const pwd = password?.toString();
-            const isEsp32 = (username === MQTT_USERNAME && pwd === MQTT_PASSWORD);
-            const isInternal = (username === MQTT_INTERNAL_USERNAME && pwd === MQTT_INTERNAL_PASSWORD);
+            const isEsp32 = timingSafeEqual(username, MQTT_USERNAME) && timingSafeEqual(pwd, MQTT_PASSWORD);
+            const isInternal = timingSafeEqual(username, MQTT_INTERNAL_USERNAME) && timingSafeEqual(pwd, MQTT_INTERNAL_PASSWORD);
 
             if (isEsp32 || isInternal) {
                 client.isEsp32 = isEsp32;
@@ -78,7 +90,10 @@ const start = async () => {
     return new Promise((resolve, reject) => {
         server = net.createServer(aedesInstance.handle);
 
-        const MQTT_BIND = process.env.MQTT_BIND_ADDRESS;
+        const MQTT_BIND = process.env.MQTT_BIND_ADDRESS || '127.0.0.1';
+        if (MQTT_BIND === '0.0.0.0') {
+            logger.warn('[MQTT] WARNING: Broker is binding to 0.0.0.0 (all interfaces). This exposes the broker to external networks.');
+        }
         server.listen(MQTT_PORT, MQTT_BIND, () => {
             const nets = os.networkInterfaces();
             let brokerIp = 'localhost';

@@ -52,6 +52,16 @@ const DeviceKeyModel = {
         );
     },
 
+    updateLastSeqAtomic: async (deviceId, seq) => {
+        const result = await db.query(
+            `UPDATE device_keys
+             SET last_seq = $2, updated_at = CURRENT_TIMESTAMP
+             WHERE device_id = $1 AND $2 > last_seq`,
+            [deviceId, seq]
+        );
+        return result.rowCount > 0;
+    },
+
     findByKey: async (hmac_key) => {
         const result = await db.query(
             `SELECT * FROM device_keys WHERE hmac_key = $1`,

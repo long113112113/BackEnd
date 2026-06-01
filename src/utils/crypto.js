@@ -23,6 +23,9 @@ const MemoryStore = () => {
 
     return {
         checkAndStore: async (nonce) => {
+            // NOTE: Node.js is single-threaded; has() and set() execute
+            // synchronously within the same event-loop tick, so no race
+            // is possible between the check and the store.
             if (map.has(nonce)) return false;
             map.set(nonce, Date.now());
             return true;

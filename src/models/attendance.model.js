@@ -19,6 +19,8 @@ const AttendanceModel = {
                 ON attendance_records(student_id);
             CREATE INDEX IF NOT EXISTS idx_attendance_date 
                 ON attendance_records(check_in_time);
+            CREATE INDEX IF NOT EXISTS idx_attendance_student_time
+                ON attendance_records(student_id, check_in_time DESC);
         `;
         await db.query(sql);
     },
@@ -39,7 +41,7 @@ const AttendanceModel = {
                     COUNT(*) OVER() AS __total_count
              FROM attendance_records ar
              JOIN students s ON ar.student_id = s.id
-             WHERE DATE(ar.check_in_time) = $1
+             WHERE ar.check_in_time >= $1::date AND ar.check_in_time < ($1::date + INTERVAL '1 day')
              ORDER BY ar.check_in_time DESC
              LIMIT $2 OFFSET $3`,
             [date, limit, offset]
@@ -67,30 +69,6 @@ const AttendanceModel = {
         return { rows, total };
     },
 
-    hasCheckedInToday: async (studentId) => {
-        const result = await db.query(
-            `SELECT 1 FROM attendance_records 
-             WHERE student_id = $1 
-             AND DATE(check_in_time) = CURRENT_DATE
-             LIMIT 1`,
-            [studentId]
-        );
-        return result.rows.length > 0;
-    },
-    createIfNotCheckedInToday: async ({ student_id, card_uid, device_id, status }) => {
-        const result = await db.query(
-            `INSERT INTO attendance_records (student_id, card_uid, device_id, status)
-             SELECT $1, $2, $3, $4
-             WHERE NOT EXISTS (
-                 SELECT 1 FROM attendance_records
-                 WHERE student_id = $1 AND DATE(check_in_time) = CURRENT_DATE
-                 LIMIT 1
-             )
-             RETURNING *`,
-            [student_id, card_uid, device_id, status || 'present']
-        );
-        return result.rows.length > 0 ? result.rows[0] : null;
-    },
     createIfCooldownPassed: async ({ student_id, card_uid, device_id, status }, cooldownMinutes) => {
         const minutes = Math.max(1, parseInt(cooldownMinutes, 10) || 3);
         const result = await db.query(
@@ -157,20 +135,29 @@ const AttendanceModel = {
             const offsetParam = paramIndex;
 
             const sql = `
+                WITH student_counts AS (
+                    SELECT 
+                        s.id as student_id_pk,
+                        s.student_id,
+                        s.full_name,
+                        s.class,
+                        COUNT(ar.id) as total_records
+                    FROM students s
+                    LEFT JOIN attendance_records ar ON s.id = ar.student_id
+                    WHERE ${conditions.join(' AND ')}
+                    GROUP BY s.id, s.student_id, s.full_name, s.class
+                    HAVING COUNT(ar.id) > 0
+                ),
+                paginated AS (
+                    SELECT *
+                    FROM student_counts
+                    ORDER BY student_id ASC
+                    LIMIT $${limitParam} OFFSET $${offsetParam}
+                )
                 SELECT 
-                    s.id as student_id_pk,
-                    s.student_id,
-                    s.full_name,
-                    s.class,
-                    COUNT(ar.id) as total_records,
-                    COUNT(*) OVER() as __total_students
-                FROM students s
-                LEFT JOIN attendance_records ar ON s.id = ar.student_id
-                WHERE ${conditions.join(' AND ')}
-                GROUP BY s.id, s.student_id, s.full_name, s.class
-                HAVING COUNT(ar.id) > 0
-                ORDER BY s.student_id ASC
-                LIMIT $${limitParam} OFFSET $${offsetParam}
+                    p.*,
+                    (SELECT COUNT(*) FROM student_counts) as __total_students
+                FROM paginated p
             `;
 
             const result = await db.query(sql, params);
@@ -197,16 +184,19 @@ const AttendanceModel = {
                 recordsParamIndex++;
             }
 
-            // Cap records to prevent unbounded memory usage (50 students × 20 records = 1000 max).
-            const maxRecordsPerPage = limit * 20;
-            recordsParams.push(maxRecordsPerPage);
+            const MAX_RECORDS_PER_STUDENT = 20;
+            recordsParams.push(MAX_RECORDS_PER_STUDENT);
 
             const recordsSql = `
-                SELECT ar.id, ar.student_id, ar.check_in_time, ar.device_id, ar.status
-                FROM attendance_records ar
-                WHERE ${recordConditions.join(' AND ')}
-                ORDER BY ar.check_in_time DESC
-                LIMIT $${recordsParamIndex}
+                SELECT id, student_id, check_in_time, device_id, status
+                FROM (
+                    SELECT ar.id, ar.student_id, ar.check_in_time, ar.device_id, ar.status,
+                           ROW_NUMBER() OVER (PARTITION BY ar.student_id ORDER BY ar.check_in_time DESC) as rn
+                    FROM attendance_records ar
+                    WHERE ${recordConditions.join(' AND ')}
+                ) ranked
+                WHERE rn <= $${recordsParamIndex}
+                ORDER BY student_id, check_in_time DESC
             `;
 
             const recordsResult = await db.query(recordsSql, recordsParams);

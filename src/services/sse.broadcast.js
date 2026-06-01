@@ -21,6 +21,11 @@ const SSE_Broadcast = {
         }
     },
 
+    getClientCount: (channel) => {
+        const channelSet = channels.get(channel);
+        return channelSet ? channelSet.size : 0;
+    },
+
     broadcast: (channel, event, data) => {
         const channelSet = channels.get(channel);
         if (!channelSet || channelSet.size === 0) return;

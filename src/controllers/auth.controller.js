@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const UserModel = require('../models/user.model');
 const RefreshTokenModel = require('../models/refreshToken.model');
 const config = require('../config');
+const { checkLockout, recordFailure, resetAttempts } = require('../utils/loginAttempts');
 
 const setTokenCookie = (res, token, maxAge) => {
     res.cookie('token', token, {
@@ -54,8 +55,18 @@ const AuthController = {
         try {
             const { username, password } = req.body;
 
+            const lockoutCheck = checkLockout(username);
+            if (lockoutCheck.locked) {
+                return res.status(429).json({
+                    success: false,
+                    message: `Too many failed login attempts. Try again in ${lockoutCheck.retryAfter} seconds.`,
+                    retryAfter: lockoutCheck.retryAfter,
+                });
+            }
+
             const user = await UserModel.findByUsername(username);
             if (!user) {
+                recordFailure(username);
                 return res.status(401).json({
                     success: false,
                     message: 'Invalid username or password',
@@ -64,11 +75,14 @@ const AuthController = {
 
             const isMatch = await argon2.verify(user.password, password);
             if (!isMatch) {
+                recordFailure(username);
                 return res.status(401).json({
                     success: false,
                     message: 'Invalid username or password',
                 });
             }
+
+            resetAttempts(username);
 
             const accessToken = generateAccessToken(user);
             const { rawToken: refreshToken } = await RefreshTokenModel.create(
