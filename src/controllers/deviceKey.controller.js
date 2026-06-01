@@ -60,6 +60,7 @@ const DeviceKeyController = {
             }
 
             await client.query('BEGIN');
+            // FIXME: CWE-252 Unchecked Return Value: entries.find returns undefined if there are spaces around the colon (e.g. "ESP32 : key"), throwing TypeError and crashing the server inside a database transaction.
             for (const device_id of results.provisioned) {
                 const entry = entries.find(e => e.startsWith(`${device_id}:`));
                 const colonIdx = entry.indexOf(':');
