@@ -91,6 +91,22 @@ const AttendanceModel = {
         );
         return result.rows.length > 0 ? result.rows[0] : null;
     },
+    createIfCooldownPassed: async ({ student_id, card_uid, device_id, status }, cooldownMinutes) => {
+        const minutes = Math.max(1, parseInt(cooldownMinutes, 10) || 3);
+        const result = await db.query(
+            `INSERT INTO attendance_records (student_id, card_uid, device_id, status)
+             SELECT $1, $2, $3, $4
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM attendance_records
+                 WHERE student_id = $1 
+                 AND check_in_time > NOW() - make_interval(mins => $5)
+                 LIMIT 1
+             )
+             RETURNING *`,
+            [student_id, card_uid, device_id, status || 'present', minutes]
+        );
+        return result.rows.length > 0 ? result.rows[0] : null;
+    },
     getStats: async () => {
         const result = await db.query(`
             SELECT 
@@ -102,6 +118,220 @@ const AttendanceModel = {
             ORDER BY date DESC
             LIMIT 30
         `);
+        return result.rows;
+    },
+
+    findAdvanced: async ({ startDate, endDate, studentId, className, groupBy }, page = 1, limit = 50) => {
+        if (groupBy === 'student') {
+            const params = [];
+            let paramIndex = 1;
+            const conditions = ['s.is_active = true'];
+
+            if (startDate) {
+                conditions.push(`ar.check_in_time >= $${paramIndex}::date`);
+                params.push(startDate);
+                paramIndex++;
+            }
+
+            if (endDate) {
+                conditions.push(`ar.check_in_time < ($${paramIndex}::date + INTERVAL '1 day')`);
+                params.push(endDate);
+                paramIndex++;
+            }
+
+            if (studentId) {
+                conditions.push(`s.student_id = $${paramIndex}`);
+                params.push(studentId);
+                paramIndex++;
+            }
+
+            if (className) {
+                conditions.push(`s.class = $${paramIndex}`);
+                params.push(className);
+                paramIndex++;
+            }
+
+            const offset = (page - 1) * limit;
+            params.push(limit, offset);
+            const limitParam = paramIndex++;
+            const offsetParam = paramIndex;
+
+            const sql = `
+                SELECT 
+                    s.id as student_id_pk,
+                    s.student_id,
+                    s.full_name,
+                    s.class,
+                    COUNT(ar.id) as total_records,
+                    COUNT(*) OVER() as __total_students
+                FROM students s
+                LEFT JOIN attendance_records ar ON s.id = ar.student_id
+                WHERE ${conditions.join(' AND ')}
+                GROUP BY s.id, s.student_id, s.full_name, s.class
+                HAVING COUNT(ar.id) > 0
+                ORDER BY s.student_id ASC
+                LIMIT $${limitParam} OFFSET $${offsetParam}
+            `;
+
+            const result = await db.query(sql, params);
+            const totalStudents = result.rows.length > 0 ? parseInt(result.rows[0].__total_students, 10) : 0;
+
+            const studentIds = result.rows.map(r => r.student_id_pk);
+            if (studentIds.length === 0) {
+                return { rows: [], total: 0 };
+            }
+
+            const recordsParams = [studentIds];
+            let recordsParamIndex = 2;
+            const recordConditions = ['ar.student_id = ANY($1)'];
+
+            if (startDate) {
+                recordConditions.push(`ar.check_in_time >= $${recordsParamIndex}::date`);
+                recordsParams.push(startDate);
+                recordsParamIndex++;
+            }
+
+            if (endDate) {
+                recordConditions.push(`ar.check_in_time < ($${recordsParamIndex}::date + INTERVAL '1 day')`);
+                recordsParams.push(endDate);
+                recordsParamIndex++;
+            }
+
+            // Cap records to prevent unbounded memory usage (50 students × 20 records = 1000 max).
+            const maxRecordsPerPage = limit * 20;
+            recordsParams.push(maxRecordsPerPage);
+
+            const recordsSql = `
+                SELECT ar.id, ar.student_id, ar.check_in_time, ar.device_id, ar.status
+                FROM attendance_records ar
+                WHERE ${recordConditions.join(' AND ')}
+                ORDER BY ar.check_in_time DESC
+                LIMIT $${recordsParamIndex}
+            `;
+
+            const recordsResult = await db.query(recordsSql, recordsParams);
+
+            const recordsByStudent = {};
+            for (const row of recordsResult.rows) {
+                if (!recordsByStudent[row.student_id]) {
+                    recordsByStudent[row.student_id] = [];
+                }
+                recordsByStudent[row.student_id].push({
+                    id: row.id,
+                    check_in_time: row.check_in_time,
+                    device_id: row.device_id,
+                    status: row.status,
+                });
+            }
+
+            const rows = result.rows.map(({ __total_students, student_id_pk, ...student }) => ({
+                student: {
+                    id: student_id_pk,
+                    student_id: student.student_id,
+                    full_name: student.full_name,
+                    class: student.class,
+                },
+                records: recordsByStudent[student_id_pk] || [],
+                total_records: parseInt(student.total_records, 10),
+            }));
+
+            return { rows, total: totalStudents };
+        }
+
+        const params = [];
+        let paramIndex = 1;
+        const conditions = [];
+
+        if (startDate) {
+            conditions.push(`ar.check_in_time >= $${paramIndex}::date`);
+            params.push(startDate);
+            paramIndex++;
+        }
+
+        if (endDate) {
+            conditions.push(`ar.check_in_time < ($${paramIndex}::date + INTERVAL '1 day')`);
+            params.push(endDate);
+            paramIndex++;
+        }
+
+        if (studentId) {
+            conditions.push(`s.student_id = $${paramIndex}`);
+            params.push(studentId);
+            paramIndex++;
+        }
+
+        if (className) {
+            conditions.push(`s.class = $${paramIndex}`);
+            params.push(className);
+            paramIndex++;
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+        const offset = (page - 1) * limit;
+        params.push(limit, offset);
+        const limitParam = paramIndex++;
+        const offsetParam = paramIndex;
+
+        const sql = `
+            SELECT ar.id, ar.card_uid, ar.check_in_time, ar.device_id, ar.status, ar.note, ar.created_at,
+                   s.student_id, s.full_name, s.class,
+                   COUNT(*) OVER() AS __total_count
+            FROM attendance_records ar
+            JOIN students s ON ar.student_id = s.id
+            ${whereClause}
+            ORDER BY ar.check_in_time DESC
+            LIMIT $${limitParam} OFFSET $${offsetParam}
+        `;
+
+        const result = await db.query(sql, params);
+        const total = result.rows.length > 0 ? parseInt(result.rows[0].__total_count, 10) : 0;
+        const rows = result.rows.map(({ __total_count, ...row }) => row);
+        return { rows, total };
+    },
+
+    findAdvancedForExport: async ({ startDate, endDate, studentId, className }, maxRecords = 10000) => {
+        const params = [];
+        let paramIndex = 1;
+        const conditions = [];
+
+        if (startDate) {
+            conditions.push(`ar.check_in_time >= $${paramIndex}::date`);
+            params.push(startDate);
+            paramIndex++;
+        }
+
+        if (endDate) {
+            conditions.push(`ar.check_in_time < ($${paramIndex}::date + INTERVAL '1 day')`);
+            params.push(endDate);
+            paramIndex++;
+        }
+
+        if (studentId) {
+            conditions.push(`s.student_id = $${paramIndex}`);
+            params.push(studentId);
+            paramIndex++;
+        }
+
+        if (className) {
+            conditions.push(`s.class = $${paramIndex}`);
+            params.push(className);
+            paramIndex++;
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+        params.push(maxRecords);
+
+        const sql = `
+            SELECT s.student_id, s.full_name, s.class, ar.check_in_time, ar.device_id, ar.status
+            FROM attendance_records ar
+            JOIN students s ON ar.student_id = s.id
+            ${whereClause}
+            ORDER BY ar.check_in_time DESC
+            LIMIT $${paramIndex}
+        `;
+
+        const result = await db.query(sql, params);
         return result.rows;
     },
 };

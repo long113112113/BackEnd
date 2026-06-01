@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const logger = require('../utils/logger');
+const config = require('../config');
 const StudentModel = require('../models/student.model');
 const AttendanceModel = require('../models/attendance.model');
 const UnknownCardModel = require('../models/unknownCard.model');
@@ -138,12 +139,12 @@ const handleMqttMessage = async (topic, message) => {
                 return;
             }
 
-            const record = await AttendanceModel.createIfNotCheckedInToday({
+            const record = await AttendanceModel.createIfCooldownPassed({
                 student_id: student.id,
                 card_uid: card_uid,
                 device_id: device_id,
                 status: 'present',
-            });
+            }, config.attendance.cooldownMinutes);
 
             if (!record) {
                 logger.info(`[MQTT] ${student.full_name} has already checked in today.`);

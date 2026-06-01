@@ -100,7 +100,7 @@ describe('MQTT Message Handler - Security Checks', () => {
 
         const mockStudent = { id: 10, student_id: '2011060001', full_name: 'Nguyen Van A', class: '20DTHX1', card_uid };
         vi.spyOn(StudentModel, 'findByCardUID').mockResolvedValue(mockStudent);
-        const createAttendanceSpy = vi.spyOn(AttendanceModel, 'createIfNotCheckedInToday').mockResolvedValue({ id: 1 });
+        const createAttendanceSpy = vi.spyOn(AttendanceModel, 'createIfCooldownPassed').mockResolvedValue({ id: 1 });
 
         await Promise.all([
             handleMqttMessage('hutech_lms/attendance/scan', Buffer.from(JSON.stringify(payload))),

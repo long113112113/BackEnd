@@ -2,6 +2,10 @@ const { Pool } = require('pg');
 const logger = require('../utils/logger');
 
 const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+    throw new Error('DATABASE_URL environment variable is required');
+}
+
 const sslConfig = process.env.DB_SSL_REJECT_UNAUTHORIZED === 'false'
     ? { rejectUnauthorized: false }
     : {};

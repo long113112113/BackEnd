@@ -109,3 +109,132 @@ describe('HACKER / PENTEST: Security & Robustness on Attendance API', () => {
     });
 });
 
+describe('GET /api/attendance - Advanced Query', () => {
+    test('returns 200 with start_date and end_date', async () => {
+        const res = await request(app)
+            .get('/api/attendance?start_date=2026-01-01&end_date=2026-01-31')
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(Array.isArray(res.body.data)).toBe(true);
+        expect(res.body.pagination).toBeDefined();
+    });
+
+    test('returns 200 with student_id filter', async () => {
+        const res = await request(app)
+            .get('/api/attendance?student_id=TEST001')
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+    });
+
+    test('returns 200 with class filter', async () => {
+        const res = await request(app)
+            .get('/api/attendance?class=20DTHX1')
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+    });
+
+    test('returns 200 with groupBy=student', async () => {
+        const res = await request(app)
+            .get('/api/attendance?start_date=2026-01-01&end_date=2026-03-31&groupBy=student')
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(Array.isArray(res.body.data)).toBe(true);
+    });
+
+    test('returns 400 when date range exceeds 90 days', async () => {
+        const res = await request(app)
+            .get('/api/attendance?start_date=2026-01-01&end_date=2026-12-31')
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain('90 days');
+    });
+
+    test('returns 400 when start_date is after end_date', async () => {
+        const res = await request(app)
+            .get('/api/attendance?start_date=2026-02-01&end_date=2026-01-01')
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain('start_date must be before');
+    });
+
+    test('returns 400 with invalid start_date format', async () => {
+        const res = await request(app)
+            .get('/api/attendance?start_date=invalid')
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(400);
+    });
+
+    test('returns 400 with invalid groupBy value', async () => {
+        const res = await request(app)
+            .get('/api/attendance?groupBy=invalid')
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(400);
+    });
+
+    test('HACKER: SQL injection in student_id is rejected by validation', async () => {
+        const res = await request(app)
+            .get("/api/attendance?student_id=TEST001' OR '1'='1")
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(400);
+    });
+
+    test('HACKER: SQL injection in class is rejected by validation', async () => {
+        const res = await request(app)
+            .get("/api/attendance?class=20DTHX1'; DROP TABLE students;--")
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(400);
+    });
+});
+
+describe('GET /api/attendance/export', () => {
+    test('returns 200 with CSV content-type or 404 if no data', async () => {
+        const res = await request(app)
+            .get('/api/attendance/export?start_date=2026-01-01&end_date=2026-01-31')
+            .set('Cookie', getCookie());
+        if (res.status === 200) {
+            expect(res.headers['content-type']).toContain('text/csv');
+            expect(res.headers['content-disposition']).toContain('attachment');
+        } else {
+            expect(res.status).toBe(404);
+        }
+    });
+
+    test('returns 404 when no records found', async () => {
+        const res = await request(app)
+            .get('/api/attendance/export?start_date=2020-01-01&end_date=2020-01-31')
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(404);
+    });
+
+    test('returns 400 when date range exceeds 90 days', async () => {
+        const res = await request(app)
+            .get('/api/attendance/export?start_date=2026-01-01&end_date=2026-12-31')
+            .set('Cookie', getCookie());
+        expect(res.status).toBe(400);
+    });
+
+    test('returns 401 without authentication', async () => {
+        const res = await request(app)
+            .get('/api/attendance/export?start_date=2026-01-01&end_date=2026-01-31');
+        expect(res.status).toBe(401);
+    });
+
+    test('returns 200 with student_id filter', async () => {
+        const res = await request(app)
+            .get('/api/attendance/export?student_id=TEST001')
+            .set('Cookie', getCookie());
+        expect([200, 404]).toContain(res.status);
+    });
+
+    test('returns 200 with class filter', async () => {
+        const res = await request(app)
+            .get('/api/attendance/export?class=20DTHX1')
+            .set('Cookie', getCookie());
+        expect([200, 404]).toContain(res.status);
+    });
+});
+

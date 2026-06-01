@@ -48,7 +48,7 @@ describe('MQTT Message Handler - Attendance Logic', () => {
         };
 
         vi.spyOn(StudentModel, 'findByCardUID').mockResolvedValue(mockStudent);
-        const createAttendanceSpy = vi.spyOn(AttendanceModel, 'createIfNotCheckedInToday').mockResolvedValue({ id: 1 });
+        const createAttendanceSpy = vi.spyOn(AttendanceModel, 'createIfCooldownPassed').mockResolvedValue({ id: 1 });
 
         const payload = { device_id: 'ESP32_DEV', encrypted };
         await handleMqttMessage('hutech_lms/attendance/scan', Buffer.from(JSON.stringify(payload)));
@@ -59,7 +59,7 @@ describe('MQTT Message Handler - Attendance Logic', () => {
             card_uid,
             device_id: 'ESP32_DEV',
             status: 'present',
-        });
+        }, expect.any(Number));
         expect(publishSpy).toHaveBeenCalledWith(
             'hutech_lms/attendance/result/ESP32_DEV',
             expect.objectContaining({
@@ -94,7 +94,7 @@ describe('MQTT Message Handler - Attendance Logic', () => {
         };
 
         vi.spyOn(StudentModel, 'findByCardUID').mockResolvedValue(mockStudent);
-        vi.spyOn(AttendanceModel, 'createIfNotCheckedInToday').mockResolvedValue(null);
+        vi.spyOn(AttendanceModel, 'createIfCooldownPassed').mockResolvedValue(null);
         const createAttendanceSpy = vi.spyOn(AttendanceModel, 'create').mockResolvedValue(null);
 
         const payload = { device_id: 'ESP32_DEV', encrypted };

@@ -8,12 +8,14 @@ const studentRoutes = require('./student.routes');
 const attendanceRoutes = require('./attendance.routes');
 const unknownCardRoutes = require('./unknownCard.routes');
 const deviceKeyRoutes = require('./deviceKey.routes');
+const dashboardRoutes = require('./dashboard.routes');
 
 router.use('/auth', authRoutes);
 router.use('/students', studentRoutes);
 router.use('/attendance', attendanceRoutes);
 router.use('/unknown-cards', unknownCardRoutes);
 router.use('/device-keys', deviceKeyRoutes);
+router.use('/dashboard', dashboardRoutes);
 
 router.get('/health', (req, res) => {
     res.json({

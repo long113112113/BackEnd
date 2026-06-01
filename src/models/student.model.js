@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
-/** Explicit column list to avoid leaking internal fields like is_active via SELECT *. */
-const STUDENT_COLUMNS = 'id, student_id, full_name, class, card_uid, email, phone, avatar_url, created_at, updated_at';
+/** Explicit column list to avoid leaking internal fields via SELECT *. */
+const STUDENT_COLUMNS = 'id, student_id, full_name, class, card_uid, email, phone, avatar_url, is_active, created_at, updated_at';
 
 const StudentModel = {
     createTable: async () => {
@@ -159,7 +159,7 @@ const StudentModel = {
     },
     delete: async (id) => {
         const result = await db.query(
-            'UPDATE students SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND is_active = true RETURNING id',
+            `UPDATE students SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND is_active = true RETURNING ${STUDENT_COLUMNS}`,
             [id]
         );
         return result.rows[0] || null;

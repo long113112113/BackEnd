@@ -11,9 +11,25 @@ const parseExpiresInMs = (str) => {
 
 const isProd = process.env.NODE_ENV === 'production';
 
+// Strict Environment Variable Validation
+if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is required');
+}
+
+if (isProd) {
+    if (!process.env.PORT) {
+        throw new Error('PORT environment variable is required in production mode');
+    }
+    if (!process.env.CLIENT_ORIGIN) {
+        throw new Error('CLIENT_ORIGIN environment variable is required in production mode');
+    }
+}
+
+const port = process.env.PORT || 3000;
+
 module.exports = {
-    port: process.env.PORT,
-    nodeEnv: process.env.NODE_ENV,
+    port,
+    nodeEnv: process.env.NODE_ENV || 'development',
     clientOrigins: (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
         .split(',')
         .map(s => s.trim())
@@ -30,5 +46,8 @@ module.exports = {
     cookie: {
         secure: isProd,
         sameSite: isProd ? 'none' : 'lax',
+    },
+    attendance: {
+        cooldownMinutes: Math.max(1, parseInt(process.env.ATTENDANCE_COOLDOWN_MINUTES, 10) || 3),
     },
 };
