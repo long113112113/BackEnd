@@ -5,5 +5,6 @@ const { authMiddleware, requireManagerOrAdmin } = require('../middlewares/auth.m
 
 router.get('/chart', authMiddleware, requireManagerOrAdmin, DashboardController.getChart);
 router.get('/stream', authMiddleware, requireManagerOrAdmin, DashboardController.streamChart);
+router.get('/stream/unknown-cards', authMiddleware, requireManagerOrAdmin, DashboardController.streamUnknownCards);
 
 module.exports = router;

@@ -6,6 +6,7 @@ const AttendanceModel = require('../models/attendance.model');
 const UnknownCardModel = require('../models/unknownCard.model');
 const DeviceKeyModel = require('../models/deviceKey.model');
 const mqttConfig = require('../config/mqtt');
+const SSE_Broadcast = require('../services/sse.broadcast');
 const { computeHmac, verifyNonce, verifySeq, deriveAesKey, encryptAesGcm, decryptAesGcm } = require('../utils/crypto');
 
 const encryptError = (aesKey, device_id, status, message, extra = {}) => {
@@ -132,7 +133,17 @@ const handleMqttMessage = async (topic, message) => {
 
             if (!student) {
                 logger.info('[MQTT] Unknown card - Saving to unknown_cards');
-                await UnknownCardModel.upsert(card_uid, device_id);
+                const card = await UnknownCardModel.upsert(card_uid, device_id);
+
+                if (card && card.seen_count === 1) {
+                    SSE_Broadcast.broadcast('unknown-cards', 'unknown-card', {
+                        card_uid: card.card_uid,
+                        device_id: card.device_id,
+                        first_seen: card.first_seen,
+                        latest_seen: card.latest_seen,
+                    });
+                }
+
                 const resultPayload = { status: 'unknown', card_uid, message: 'The chua dang ky' };
                 const enc = encryptAesGcm(aesKey, JSON.stringify(resultPayload));
                 mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, { device_id, encrypted: enc });
