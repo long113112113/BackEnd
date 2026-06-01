@@ -92,7 +92,7 @@ const handleMqttMessage = async (topic, message) => {
                 return;
             }
 
-            const msgToSign = device_id + card_uid + nonce + seq;
+            const msgToSign = `${device_id}|${card_uid}|${nonce}|${seq}`;
             const expectedHmac = computeHmac(device.hmac_key, msgToSign);
 
             const hash1 = crypto.createHash('sha256').update(Buffer.from(receivedHmac, 'hex')).digest();
@@ -125,6 +125,14 @@ const handleMqttMessage = async (topic, message) => {
                 logger.info(`[MQTT] ⚠ NVS RESET DETECTED device_id=${device_id} seq=${seq} last_seq was ${device.last_seq} — auto-recovered`);
             }
 
+            const seqUpdated = await DeviceKeyModel.updateLastSeqAtomic(device_id, seq);
+            if (!seqUpdated) {
+                logger.info(`[MQTT] Seq race condition device_id=${device_id} seq=${seq} last_seq=${device.last_seq}`);
+                const errPayload = encryptError(aesKey, device_id, 'error', 'Seq race condition', { card_uid });
+                mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, errPayload);
+                return;
+            }
+
             const maskedCardUid = card_uid.substring(0, 4) + '****';
             logger.info(`\n[MQTT] Card received: card_uid = ${maskedCardUid} | device = ${device_id}`);
 
@@ -143,8 +151,6 @@ const handleMqttMessage = async (topic, message) => {
                     });
                 }
 
-                await DeviceKeyModel.updateLastSeqAtomic(device_id, seq);
-
                 const resultPayload = { status: 'unknown', card_uid, message: 'The chua dang ky' };
                 const enc = encryptAesGcm(aesKey, JSON.stringify(resultPayload));
                 mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, { device_id, encrypted: enc });
@@ -160,7 +166,6 @@ const handleMqttMessage = async (topic, message) => {
 
             if (!record) {
                 logger.info(`[MQTT] ${student.full_name} has already checked in today.`);
-                await DeviceKeyModel.updateLastSeqAtomic(device_id, seq);
                 const resultPayload = {
                     status: 'duplicate',
                     name: student.full_name,
@@ -174,8 +179,6 @@ const handleMqttMessage = async (topic, message) => {
             }
 
             logger.info(`[MQTT] Attendance successful: ${student.full_name} (${student.student_id})`);
-
-            await DeviceKeyModel.updateLastSeqAtomic(device_id, seq);
 
             const resultPayload = {
                 status: 'success',

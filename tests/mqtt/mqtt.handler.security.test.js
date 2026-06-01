@@ -33,7 +33,7 @@ describe('MQTT Message Handler - Security Checks', () => {
         const nonce = 'c'.repeat(32);
         const card_uid = 'A1B2C3D4';
         const seq = 15;
-        const msgToSign = 'ESP32_DEV' + card_uid + nonce + seq;
+        const msgToSign = `ESP32_DEV|${card_uid}|${nonce}|${seq}`;
         const hmac = computeHmac(TEST_KEY, msgToSign);
 
         const innerPayload = { card_uid, nonce, seq, hmac };
@@ -65,7 +65,7 @@ describe('MQTT Message Handler - Security Checks', () => {
         const nonce = 'd'.repeat(32);
         const card_uid = 'A1B2C3D4';
         const seq = 50;
-        const msgToSign = 'ESP32_DEV' + card_uid + nonce + seq;
+        const msgToSign = `ESP32_DEV|${card_uid}|${nonce}|${seq}`;
         const hmac = computeHmac(TEST_KEY, msgToSign);
 
         const innerPayload = { card_uid, nonce, seq, hmac };
@@ -86,12 +86,12 @@ describe('MQTT Message Handler - Security Checks', () => {
             hmac_key: TEST_KEY,
             last_seq: 10,
         });
-        vi.spyOn(DeviceKeyModel, 'updateLastSeq').mockResolvedValue(null);
+        vi.spyOn(DeviceKeyModel, 'updateLastSeqAtomic').mockResolvedValue(true);
 
         const nonce = 'r'.repeat(32);
         const card_uid = 'A1B2C3D4';
         const seq = 18;
-        const msgToSign = 'ESP32_DEV' + card_uid + nonce + seq;
+        const msgToSign = `ESP32_DEV|${card_uid}|${nonce}|${seq}`;
         const hmac = computeHmac(TEST_KEY, msgToSign);
 
         const innerPayload = { card_uid, nonce, seq, hmac };

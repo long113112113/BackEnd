@@ -110,6 +110,7 @@ const decryptAesGcm = (keyHex, encryptedObj) => {
 };
 
 const NVS_RESET_DELTA_THRESHOLD = 1000;
+const NVS_RESET_MAX_SEQ = 100;
 
 const verifySeq = (newSeq, lastSeq) => {
     const seq = Number(newSeq);
@@ -126,7 +127,7 @@ const verifySeq = (newSeq, lastSeq) => {
     if (seq > last) {
         return { ok: true };
     }
-    if (seq === 1 || (last - seq) > NVS_RESET_DELTA_THRESHOLD) {
+    if (seq === 1 || (seq <= NVS_RESET_MAX_SEQ && (last - seq) > NVS_RESET_DELTA_THRESHOLD)) {
         return { ok: true, nvs_reset: true };
     }
     return { ok: false, reason: 'seq_not_monotonic', expected: last + 1, got: seq };

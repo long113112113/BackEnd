@@ -1,6 +1,7 @@
 const MAX_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 15 * 60 * 1000;
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
+const STALE_ENTRY_MS = 30 * 60 * 1000;
 
 const attempts = new Map();
 
@@ -8,6 +9,8 @@ const cleanup = () => {
     const now = Date.now();
     for (const [username, data] of attempts) {
         if (data.lockUntil && data.lockUntil < now) {
+            attempts.delete(username);
+        } else if (!data.lockUntil && (now - data.lastAttempt) > STALE_ENTRY_MS) {
             attempts.delete(username);
         }
     }
@@ -34,8 +37,9 @@ const checkLockout = (username) => {
 };
 
 const recordFailure = (username) => {
-    const data = attempts.get(username) || { count: 0, lockUntil: null };
+    const data = attempts.get(username) || { count: 0, lockUntil: null, lastAttempt: 0 };
     data.count += 1;
+    data.lastAttempt = Date.now();
 
     if (data.count >= MAX_ATTEMPTS) {
         data.lockUntil = Date.now() + LOCK_DURATION_MS;
