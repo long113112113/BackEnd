@@ -26,3 +26,5 @@ vul.md
 
 # Tests
 tests/
+publickey.txt
+esp32key/
