@@ -92,8 +92,19 @@ const start = async () => {
         server = net.createServer(aedesInstance.handle);
 
         const MQTT_BIND = process.env.MQTT_BIND_ADDRESS || '127.0.0.1';
-        if (MQTT_BIND === '0.0.0.0') {
-            logger.warn('[MQTT] WARNING: Broker is binding to 0.0.0.0 (all interfaces). This exposes the broker to external networks.');
+        const isPublicBind = MQTT_BIND === '0.0.0.0' || MQTT_BIND === '::';
+        if (isPublicBind) {
+            const isProd = process.env.NODE_ENV === 'production';
+            const allowed = process.env.MQTT_ALLOW_PUBLIC_BIND === 'true';
+            if (isProd && !allowed) {
+                logger.error(
+                    '[MQTT] FATAL: Refusing to bind to public interface in production. ' +
+                    'Set MQTT_BIND_ADDRESS to 127.0.0.1 (or specific IP), ' +
+                    'or set MQTT_ALLOW_PUBLIC_BIND=true to override (requires firewall + strong credentials).'
+                );
+                process.exit(1);
+            }
+            logger.warn('[MQTT] WARNING: Binding to public interface. Ensure firewall and credentials are properly configured.');
         }
         server.listen(MQTT_PORT, MQTT_BIND, () => {
             const nets = os.networkInterfaces();

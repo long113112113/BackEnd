@@ -7,6 +7,17 @@ const VALID_ROLES = ['admin', 'manager'];
 const userCache = new Map();
 const CACHE_TTL = 60_000;
 
+const CACHE_CLEANUP_INTERVAL = 60_000;
+const cleanupInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [userId, entry] of userCache) {
+        if (now - entry.ts > CACHE_TTL) {
+            userCache.delete(userId);
+        }
+    }
+}, CACHE_CLEANUP_INTERVAL);
+cleanupInterval.unref();
+
 const getCachedUser = async (userId) => {
     const cached = userCache.get(userId);
     if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.user;
@@ -27,7 +38,7 @@ const authMiddleware = async (req, res, next) => {
             });
         }
 
-        const decoded = jwt.verify(token, config.jwt.secret);
+        const decoded = jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] });
 
         if (!VALID_ROLES.includes(decoded.role)) {
             return res.status(403).json({
@@ -82,4 +93,9 @@ const requireManagerOrAdmin = (req, res, next) => {
     next();
 };
 
-module.exports = { authMiddleware, requireAdmin, requireManagerOrAdmin };
+const destroyCache = () => {
+    clearInterval(cleanupInterval);
+    userCache.clear();
+};
+
+module.exports = { authMiddleware, requireAdmin, requireManagerOrAdmin, destroyCache };

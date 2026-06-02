@@ -37,18 +37,12 @@ const handleMqttMessage = async (topic, message) => {
 
             if (!encrypted || !encrypted.iv || !encrypted.ciphertext || !encrypted.auth_tag) {
                 logger.info(`[MQTT] Missing encrypted payload from device_id=${device_id}`);
-                mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, {
-                    status: 'error', device_id, message: 'Missing encrypted payload',
-                });
                 return;
             }
 
             device = await DeviceKeyModel.findByDeviceId(device_id);
             if (!device) {
                 logger.info(`[MQTT] Unknown device_id=${device_id} — key not provisioned`);
-                mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, {
-                    status: 'error', device_id, message: 'Device not provisioned',
-                });
                 return;
             }
 

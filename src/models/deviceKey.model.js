@@ -62,14 +62,6 @@ const DeviceKeyModel = {
         return result.rowCount > 0;
     },
 
-    findByKey: async (hmac_key) => {
-        const result = await db.query(
-            `SELECT * FROM device_keys WHERE hmac_key = $1`,
-            [hmac_key]
-        );
-        return result.rows[0] || null;
-    },
-
     findAll: async () => {
         const result = await db.query(
             `SELECT id, device_id, last_seq, created_at, updated_at

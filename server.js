@@ -12,6 +12,7 @@ const initDatabase = require('./src/utils/initDb');
 const { initNonceStore, destroyNonceStore } = require('./src/utils/crypto');
 const seedAdmin = require('./src/utils/seedAdmin');
 const seedDevices = require('./src/utils/seedDevices');
+const { destroyCache } = require('./src/middlewares/auth.middleware');
 const RefreshTokenModel = require('./src/models/refreshToken.model');
 
 let httpServer = null;
@@ -61,6 +62,7 @@ const gracefulShutdown = async (signal) => {
         await mqttConfig.disconnect();
         await aedesConfig.stop();
         await destroyNonceStore();
+        destroyCache();
         await db.closePool();
 
         logger.info('[Server] All connections closed. Goodbye.');

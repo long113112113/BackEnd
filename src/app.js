@@ -51,7 +51,6 @@ app.get('/', (req, res) => {
             message: 'IoT Attendance Server is active.',
             version: '1.0.0',
             endpoints: {
-                health: '/api/health',
                 auth: '/api/auth',
                 students: '/api/students',
                 attendance: '/api/attendance',
