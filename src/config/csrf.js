@@ -7,14 +7,16 @@ if (!CSRF_SECRET) {
 }
 
 const isProd = process.env.NODE_ENV === 'production';
+const cookieSecure = process.env.COOKIE_SECURE === 'true';
+const cookieSameSite = (isProd && process.env.COOKIE_SECURE !== 'false') ? 'none' : 'lax';
 
 const SKIP_CSRF_PATHS = ['/api/auth/refresh', '/api/auth/logout'];
 
-const SESSION_COOKIE_NAME = isProd ? '__Host-session-id' : 'session-id';
+const SESSION_COOKIE_NAME = isProd && cookieSecure ? '__Host-session-id' : 'session-id';
 const SESSION_COOKIE_OPTIONS = {
     httpOnly: true,
-    sameSite: isProd ? 'none' : 'lax',
-    secure: isProd,
+    sameSite: cookieSameSite,
+    secure: cookieSecure,
     path: '/',
     maxAge: 30 * 24 * 60 * 60 * 1000,
 };
@@ -34,8 +36,8 @@ const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
     cookieName: isProd ? '__Host-csrf-token' : 'csrf-token',
     cookieOptions: {
         httpOnly: true,
-        sameSite: isProd ? 'none' : 'lax',
-        secure: isProd,
+        sameSite: cookieSameSite,
+        secure: cookieSecure,
         path: '/',
     },
     size: 64,

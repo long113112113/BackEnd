@@ -55,8 +55,8 @@ module.exports = {
         refreshMaxAgeMs: parseExpiresInMs(process.env.JWT_REFRESH_EXPIRES_IN || '7d'),
     },
     cookie: {
-        secure: isProd,
-        sameSite: isProd ? 'none' : 'lax',
+        secure: process.env.COOKIE_SECURE === 'true',
+        sameSite: (isProd && process.env.COOKIE_SECURE !== 'false') ? 'none' : 'lax',
     },
     attendance: {
         cooldownMinutes: Math.max(1, parseInt(process.env.ATTENDANCE_COOLDOWN_MINUTES, 10) || 3),
