@@ -33,7 +33,7 @@ const ensureSessionId = (req, res, next) => {
 const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
     getSecret: () => CSRF_SECRET,
     getSessionIdentifier: (req) => req.cookies?.[SESSION_COOKIE_NAME] || 'static',
-    cookieName: isProd ? '__Host-csrf-token' : 'csrf-token',
+    cookieName: isProd && cookieSecure ? '__Host-csrf-token' : 'csrf-token',
     cookieOptions: {
         httpOnly: true,
         sameSite: cookieSameSite,
