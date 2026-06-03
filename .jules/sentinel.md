@@ -1,0 +1,4 @@
+## 2026-06-03 - [Mitigate CWE-208 Timing Side-Channel]
+**Vulnerability:** The `timingSafeEqual` utility in `src/config/aedes.js` contained an early return condition `if (bufA.length !== bufB.length) return false;`. This check leaked the exact length of the expected MQTT credentials through timing variations.
+**Learning:** This check existed to prevent Node.js `crypto.timingSafeEqual` from throwing an exception when comparing buffers of differing lengths. However, bypassing the constant-time comparison entirely when lengths mismatch defeats the purpose, enabling a length-inference timing attack.
+**Prevention:** Instead of comparing lengths, unconditionally hash both input strings (e.g., `sha256`) before passing them to `timingSafeEqual`. This guarantees both buffers have identical lengths (32 bytes), satisfying `timingSafeEqual`'s constraints while preventing any early returns or timing deviations.
