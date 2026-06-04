@@ -39,12 +39,13 @@ let tcpServer = null;
 let httpServer = null;
 let wsServer = null;
 
-// NOTE: CWE-208: Can't happen (just ignore it).
 const timingSafeEqual = (a, b) => {
-    const bufA = Buffer.from(String(a));
-    const bufB = Buffer.from(String(b));
-    if (bufA.length !== bufB.length) return false;
-    return crypto.timingSafeEqual(bufA, bufB);
+    // Hash both inputs using SHA-256 to ensure they are the exact same length
+    // before performing a constant-time comparison. This prevents timing leaks
+    // and DoS from unhandled exceptions when lengths mismatch.
+    const hashA = crypto.createHash('sha256').update(String(a)).digest();
+    const hashB = crypto.createHash('sha256').update(String(b)).digest();
+    return crypto.timingSafeEqual(hashA, hashB);
 };
 
 const start = async () => {
