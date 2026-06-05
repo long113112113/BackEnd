@@ -5,6 +5,8 @@ const UserModel = require('../models/user.model');
 const UnknownCardModel = require('../models/unknownCard.model');
 const DeviceKeyModel = require('../models/deviceKey.model');
 const RefreshTokenModel = require('../models/refreshToken.model');
+const DevicePairModel = require('../models/devicePair.model');
+const FaceCaptureModel = require('../models/faceCapture.model');
 const db = require('../config/db');
 
 const initDatabase = async () => {
@@ -21,7 +23,9 @@ const initDatabase = async () => {
         await AttendanceModel.createTable();
         await UnknownCardModel.createTable();
         await DeviceKeyModel.createTable();
+        await DevicePairModel.createTable();
         await RefreshTokenModel.createTable();
+        await FaceCaptureModel.createTable();
 
         logger.info('[Database] Database is ready.\n');
     } catch (err) {

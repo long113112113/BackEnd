@@ -10,7 +10,7 @@ const isProd = process.env.NODE_ENV === 'production';
 const cookieSecure = process.env.COOKIE_SECURE === 'true';
 const cookieSameSite = (isProd && process.env.COOKIE_SECURE !== 'false') ? 'none' : 'lax';
 
-const SKIP_CSRF_PATHS = ['/api/auth/refresh', '/api/auth/logout'];
+const SKIP_CSRF_PATHS = ['/api/auth/refresh', '/api/auth/logout', '/api/face/upload'];
 
 const SESSION_COOKIE_NAME = isProd && cookieSecure ? '__Host-session-id' : 'session-id';
 const SESSION_COOKIE_OPTIONS = {

@@ -324,6 +324,29 @@ const AttendanceModel = {
         const result = await db.query(sql, params);
         return result.rows;
     },
+
+    setFaceStatus: async (id, { face_status, face_capture_id }) => {
+        const sets = [];
+        const params = [];
+        let idx = 1;
+        if (face_status !== undefined) {
+            sets.push(`face_status = $${idx++}`);
+            params.push(face_status);
+        }
+        if (face_capture_id !== undefined) {
+            sets.push(`face_capture_id = $${idx++}`);
+            params.push(face_capture_id);
+        }
+        if (sets.length === 0) return null;
+        params.push(id);
+        const result = await db.query(
+            `UPDATE attendance_records SET ${sets.join(', ')}
+             WHERE id = $${idx}
+             RETURNING *`,
+            params
+        );
+        return result.rows[0] || null;
+    },
 };
 
 module.exports = AttendanceModel;

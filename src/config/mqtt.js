@@ -20,6 +20,7 @@ const TOPICS = {
     SCAN: `${TOPIC_PREFIX}/attendance/scan`,
     RESULT: `${TOPIC_PREFIX}/attendance/result`,
     STATUS: `${TOPIC_PREFIX}/device/status`,
+    FACE_CAPTURE: `${TOPIC_PREFIX}/face/capture`,
 };
 
 let client = null;

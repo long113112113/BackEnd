@@ -61,4 +61,14 @@ module.exports = {
     attendance: {
         cooldownMinutes: Math.max(1, parseInt(process.env.ATTENDANCE_COOLDOWN_MINUTES, 10) || 3),
     },
+    face: {
+        storageDir: process.env.FACE_STORAGE_DIR || './storage/face_captures',
+        strictMode: process.env.FACE_STRICT_MODE === 'true',
+        captureTimeoutMs: Math.max(1000, parseInt(process.env.FACE_CAPTURE_TIMEOUT_MS, 10) || 30000),
+        tokenTtlSeconds: Math.max(5, parseInt(process.env.FACE_TOKEN_TTL_SECONDS, 10) || 30),
+    },
+    ai: {
+        grpcUrl: process.env.AI_GRPC_URL || 'localhost:50051',
+        enabled: process.env.AI_GRPC_ENABLED !== 'false',
+    },
 };

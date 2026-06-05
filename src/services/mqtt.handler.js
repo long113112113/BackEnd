@@ -7,6 +7,7 @@ const UnknownCardModel = require('../models/unknownCard.model');
 const DeviceKeyModel = require('../models/deviceKey.model');
 const mqttConfig = require('../config/mqtt');
 const SSE_Broadcast = require('../services/sse.broadcast');
+const FaceService = require('../services/face.service');
 const { computeHmac, verifyNonce, verifySeq, deriveAesKey, encryptAesGcm, decryptAesGcm } = require('../utils/crypto');
 
 const encryptError = (aesKey, device_id, status, message, extra = {}) => {
@@ -173,6 +174,15 @@ const handleMqttMessage = async (topic, message) => {
             }
 
             logger.info(`[MQTT] Attendance successful: ${student.full_name} (${student.student_id})`);
+
+            // Fire-and-forget: trigger camAI to capture + verify the student's face
+            FaceService.triggerFaceCapture({
+                nfcDeviceId: device_id,
+                attendanceId: record.id,
+                studentIdHint: student.id,
+            }).catch((err) => {
+                logger.error(`[MQTT] Failed to trigger face capture: ${err.message}`);
+            });
 
             const resultPayload = {
                 status: 'success',

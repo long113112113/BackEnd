@@ -319,6 +319,41 @@ const DashboardController = {
         req.on('close', cleanup);
         res.socket.on('timeout', cleanup);
     },
+
+    streamFaceResults: (req, res) => {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Accel-Buffering', 'no');
+        res.flushHeaders();
+
+        res.socket.setNoDelay(true);
+        res.socket.setTimeout(SSE_SOCKET_TIMEOUT_MS);
+        res.socket.setKeepAlive(true, 30000);
+
+        logger.info(`[SSE FaceResults] Client connected: ${req.ip}`);
+
+        SSE_Broadcast.addClient(res, 'face-results');
+        res.write(`retry: ${SSE_RETRY_MS}\n\n`);
+
+        const heartbeat = setInterval(() => {
+            if (res.writableEnded || res.writableFinished) {
+                clearInterval(heartbeat);
+                return;
+            }
+            res.write(`:heartbeat\n\n`);
+        }, SSE_HEARTBEAT_INTERVAL);
+        heartbeat.unref();
+
+        const cleanup = () => {
+            SSE_Broadcast.removeClient(res, 'face-results');
+            clearInterval(heartbeat);
+            logger.info(`[SSE FaceResults] Client disconnected: ${req.ip}`);
+        };
+
+        req.on('close', cleanup);
+        res.socket.on('timeout', cleanup);
+    },
 };
 
 module.exports = DashboardController;

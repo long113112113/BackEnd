@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package facerecognition;
+
+service FaceRecognition {
+  // Verify a captured face image against the student's reference embedding.
+  // Returns match/mismatch plus a liveness score for anti-spoofing.
+  rpc Recognize(RecognizeRequest) returns (RecognizeResponse);
+}
+
+message FaceBox {
+  int32 x = 1;
+  int32 y = 2;
+  int32 w = 3;
+  int32 h = 4;
+  float score = 5;
+}
+
+message RecognizeRequest {
+  int32    face_capture_id = 1;
+  int32    attendance_id   = 2;
+  int32    student_id_hint = 3;
+  bytes    image           = 4;  // raw JPEG
+  FaceBox  box             = 5;
+  int64    ts_ms           = 6;  // server clock at trigger
+}
+
+message RecognizeResponse {
+  bool    matched         = 1;
+  int32   student_id      = 2;  // 0 if no match
+  float   score           = 3;  // cosine similarity 0..1
+  float   liveness_score  = 4;  // 0..1, higher = more likely live
+  string  decision        = 5;  // match | mismatch | spoof | no_face | error
+  string  request_id      = 6;  // AI-side correlation id
+}

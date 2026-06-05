@@ -71,6 +71,9 @@ const start = async () => {
             if (client.isEsp32 && packet.topic.startsWith(`${TOPIC_PREFIX}/attendance/result`)) {
                 return callback(new Error('ESP32 cannot publish to result topic'));
             }
+            if (client.isEsp32 && packet.topic.startsWith(`${TOPIC_PREFIX}/face/`)) {
+                return callback(new Error('ESP32 cannot publish to face topics'));
+            }
             callback(null);
         },
         authorizeSubscribe: (client, sub, callback) => {
@@ -78,9 +81,10 @@ const start = async () => {
                 return callback(new Error('Unauthorized subscribe'));
             }
             if (client.isEsp32) {
-                const ownTopic = `${TOPIC_PREFIX}/attendance/result/${client.id}`;
-                if (sub.topic !== ownTopic) {
-                    return callback(new Error(`Subscribe denied: ESP32 can only subscribe to ${ownTopic}`));
+                const ownResultTopic = `${TOPIC_PREFIX}/attendance/result/${client.id}`;
+                const ownFaceTopic   = `${TOPIC_PREFIX}/face/capture/${client.id}`;
+                if (sub.topic !== ownResultTopic && sub.topic !== ownFaceTopic) {
+                    return callback(new Error(`Subscribe denied: ESP32 can only subscribe to ${ownResultTopic} or ${ownFaceTopic}`));
                 }
             }
             callback(null, sub);
