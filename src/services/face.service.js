@@ -8,7 +8,7 @@ const FaceCaptureModel = require('../models/faceCapture.model');
 const DevicePairModel = require('../models/devicePair.model');
 const AttendanceModel = require('../models/attendance.model');
 const SSE_Broadcast = require('./sse.broadcast');
-const aiClient = require('./ai.grpc.client');
+const aiClient = require('./ai.grpc.server');
 
 const DEVICE_ID_REGEX = /^[a-zA-Z0-9_-]{1,50}$/;
 

@@ -6,6 +6,26 @@ service FaceRecognition {
   // Verify a captured face image against the student's reference embedding.
   // Returns match/mismatch plus a liveness score for anti-spoofing.
   rpc Recognize(RecognizeRequest) returns (RecognizeResponse);
+
+  // Bi-directional streaming for the AI Edge Worker pattern
+  rpc ConnectWorker(stream WorkerMessage) returns (stream ServerMessage);
+}
+
+message WorkerMessage {
+  oneof payload {
+    WorkerRegistration register = 1;
+    RecognizeResponse result = 2;
+  }
+}
+
+message WorkerRegistration {
+  string worker_id = 1;
+}
+
+message ServerMessage {
+  oneof payload {
+    RecognizeRequest task = 1;
+  }
 }
 
 message FaceBox {

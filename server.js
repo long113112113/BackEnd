@@ -14,6 +14,7 @@ const seedAdmin = require('./src/utils/seedAdmin');
 const seedDevices = require('./src/utils/seedDevices');
 const { destroyCache } = require('./src/middlewares/auth.middleware');
 const RefreshTokenModel = require('./src/models/refreshToken.model');
+const aiGrpcServer = require('./src/services/ai.grpc.server');
 
 let httpServer = null;
 let shuttingDown = false;
@@ -61,6 +62,7 @@ const gracefulShutdown = async (signal) => {
         await closeHttp();
         await mqttConfig.disconnect();
         await aedesConfig.stop();
+        await aiGrpcServer.stopServer();
         await destroyNonceStore();
         destroyCache();
         await db.closePool();
@@ -84,6 +86,7 @@ const startServer = async () => {
         await initNonceStore();
         await aedesConfig.start();
         mqttConfig.connect(handleMqttMessage);
+        aiGrpcServer.startServer();
 
         httpServer = app.listen(config.port, () => {
             const nets = os.networkInterfaces();
