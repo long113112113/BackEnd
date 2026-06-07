@@ -103,7 +103,7 @@ const startServer = () => {
                     if (pendingPing) {
                         clearTimeout(pendingPing.timeout);
                         pendingPing = null;
-                        logger.info(`[AI Worker] Pong received from ${workerId} (latency: ${Date.now() - Number(workerMsg.pong.timestamp)}ms)`);
+                        logger.debug(`[AI Worker] Pong received from ${workerId} (latency: ${Date.now() - Number(workerMsg.pong.timestamp)}ms)`);
                     }
                 } else if (workerMsg.result) {
                     const resp = workerMsg.result;
