@@ -98,7 +98,7 @@ const FaceCaptureModel = {
             `UPDATE face_captures
              SET status        = $2,
                  ai_request_id = COALESCE($3, ai_request_id),
-                 matched_at    = CASE WHEN $2 IN ('matched', 'mismatch', 'no_face', 'spoof')
+                 matched_at    = CASE WHEN $2::text IN ('matched', 'mismatch', 'no_face', 'spoof')
                                      THEN NOW() ELSE matched_at END
              WHERE id = $1
              RETURNING *`,

@@ -129,7 +129,7 @@ const handleMqttMessage = async (topic, message) => {
             }
 
             const maskedCardUid = card_uid.substring(0, 4) + '****';
-            logger.info(`\n[MQTT] Card received: card_uid = ${maskedCardUid} | device = ${device_id}`);
+            logger.info(`[MQTT] Card received: card_uid = ${maskedCardUid} | device = ${device_id}`);
 
             const student = await StudentModel.findByCardUID(card_uid);
 
