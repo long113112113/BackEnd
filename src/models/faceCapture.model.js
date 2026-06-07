@@ -94,15 +94,16 @@ const FaceCaptureModel = {
     },
 
     setAiResult: async (id, { status, ai_request_id }) => {
+        const TERMINAL_STATUSES = ['matched', 'mismatch', 'no_face', 'spoof'];
+        const shouldSetMatchedAt = TERMINAL_STATUSES.includes(status);
         const result = await db.query(
             `UPDATE face_captures
              SET status        = $2,
                  ai_request_id = COALESCE($3, ai_request_id),
-                 matched_at    = CASE WHEN $2::text IN ('matched', 'mismatch', 'no_face', 'spoof')
-                                     THEN NOW() ELSE matched_at END
+                 matched_at    = CASE WHEN $4::boolean THEN NOW() ELSE matched_at END
              WHERE id = $1
              RETURNING *`,
-            [id, status, ai_request_id || null]
+            [id, status, ai_request_id || null, shouldSetMatchedAt]
         );
         return result.rows[0] || null;
     },
