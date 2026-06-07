@@ -7,7 +7,7 @@ const EnrollController = require('../controllers/enroll.controller');
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 500 * 1024, files: 3 },
-    fileFilter: (req, file, cb) => {
+    fileFilter: (_req, file, cb) => {
         if (['image/jpeg', 'image/png'].includes(file.mimetype)) {
             cb(null, true);
         } else {
