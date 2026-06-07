@@ -88,7 +88,7 @@ const handleFaceUpload = async ({ deviceId, attendanceId, captureToken, imageBuf
         return { ok: false, status: 400, message: 'invalid capture_token' };
     }
     const aid = parseInt(attendanceId, 10);
-    if (!aid || aid <= 0) {
+    if (Number.isNaN(aid) || aid < 0) {
         return { ok: false, status: 400, message: 'invalid attendance_id' };
     }
 
