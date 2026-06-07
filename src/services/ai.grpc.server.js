@@ -10,6 +10,36 @@ let activeWorkers = new Set();
 let pendingTasks = new Map();
 let pendingExtracts = new Map();
 
+let aiDowntimeTimer = null;
+let isHealthy = true;
+
+const setHealthy = (healthy) => {
+    if (isHealthy === healthy) return;
+    isHealthy = healthy;
+    if (healthy) {
+        logger.info('[AI] AI worker connected. Strict mode restored.');
+    } else {
+        logger.warn('[AI] No active workers for 3 minutes. Temporarily disabling strict mode.');
+    }
+};
+
+const checkHealth = () => {
+    if (activeWorkers.size > 0) {
+        if (aiDowntimeTimer) {
+            clearTimeout(aiDowntimeTimer);
+            aiDowntimeTimer = null;
+        }
+        setHealthy(true);
+    } else {
+        if (!aiDowntimeTimer && isHealthy) {
+            aiDowntimeTimer = setTimeout(() => {
+                setHealthy(false);
+                aiDowntimeTimer = null;
+            }, 3 * 60 * 1000);
+        }
+    }
+};
+
 const PROTO_PATH = path.join(__dirname, '..', '..', 'proto', 'face_recognition.proto');
 
 const startServer = () => {
@@ -54,6 +84,7 @@ const startServer = () => {
         ConnectWorker: (call) => {
             let workerId = 'unknown';
             activeWorkers.add(call);
+            checkHealth();
             logger.info('[AI Worker] New worker connected.');
 
             // Ping/pong state
@@ -69,6 +100,7 @@ const startServer = () => {
                 }
                 clearInterval(pingTimer);
                 activeWorkers.delete(call);
+                checkHealth();
             };
 
             const pingTimer = setInterval(() => {
@@ -109,7 +141,7 @@ const startServer = () => {
                     const resp = workerMsg.result;
                     // We expect the worker to echo the face_capture_id into the request_id field
                     const taskId = resp.request_id;
-                    
+
                     const task = pendingTasks.get(taskId);
                     if (task) {
                         clearTimeout(task.timeout);
@@ -165,11 +197,16 @@ const startServer = () => {
         // grpc.Server.start() is not strictly required in @grpc/grpc-js latest versions if using bindAsync, but it's safe to call.
         server.start();
         logger.info(`[AI] gRPC Worker Server listening on ${bindAddr}`);
+        checkHealth();
     });
 };
 
 const stopServer = () => {
     return new Promise((resolve) => {
+        if (aiDowntimeTimer) {
+            clearTimeout(aiDowntimeTimer);
+            aiDowntimeTimer = null;
+        }
         if (server) {
             server.tryShutdown(() => {
                 logger.info('[AI] gRPC Server shut down.');
@@ -219,7 +256,7 @@ const recognize = (req) => {
         const selectedWorker = workers[Math.floor(Math.random() * workers.length)];
 
         const taskId = req.face_capture_id.toString();
-        
+
         // Timeout (5 seconds max for the worker to respond)
         const timeout = setTimeout(() => {
             if (pendingTasks.has(taskId)) {
@@ -252,6 +289,7 @@ const recognize = (req) => {
             clearTimeout(timeout);
             pendingTasks.delete(taskId);
             activeWorkers.delete(selectedWorker);
+            checkHealth();
             reject(new Error(`Failed to write to worker: ${err.message}`));
         }
     });
@@ -282,7 +320,7 @@ const extractFeature = (req) => {
         const selectedWorker = workers[Math.floor(Math.random() * workers.length)];
 
         const taskId = req.request_id || crypto.randomUUID();
-        
+
         // Timeout 8 seconds for extraction
         const timeout = setTimeout(() => {
             if (pendingExtracts.has(taskId)) {
@@ -312,9 +350,15 @@ const extractFeature = (req) => {
             clearTimeout(timeout);
             pendingExtracts.delete(taskId);
             activeWorkers.delete(selectedWorker);
+            checkHealth();
             reject(new Error(`Failed to write to worker: ${err.message}`));
         }
     });
 };
 
-module.exports = { startServer, stopServer, recognize, extractFeature };
+const isServiceHealthy = () => {
+    if (!config.ai.enabled) return true;
+    return isHealthy;
+};
+
+module.exports = { startServer, stopServer, recognize, extractFeature, isServiceHealthy };

@@ -254,7 +254,8 @@ const onAiResult = async (faceCaptureId, attendanceId, aiResp) => {
         face_capture_id: faceCaptureId,
     });
 
-    if (config.face.strictMode && decision !== 'match') {
+    const isStrict = config.face.strictMode && aiClient.isServiceHealthy();
+    if (isStrict && decision !== 'match') {
         // Mark attendance as failed in strict mode; admin decides
         await AttendanceModel.setFaceStatus(attendanceId, {
             face_status: `failed_${decision}`,
