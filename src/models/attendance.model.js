@@ -44,6 +44,7 @@ const AttendanceModel = {
         const offset = (page - 1) * limit;
         const result = await db.query(
             `SELECT ar.id, ar.card_uid, ar.check_in_time, ar.device_id, ar.status, ar.note, ar.created_at,
+                    ar.face_status, ar.face_capture_id,
                     s.student_id, s.full_name, s.class,
                     COUNT(*) OVER() AS __total_count
              FROM attendance_records ar
@@ -62,6 +63,7 @@ const AttendanceModel = {
         const offset = (page - 1) * limit;
         const result = await db.query(
             `SELECT ar.id, ar.card_uid, ar.check_in_time, ar.device_id, ar.status, ar.note, ar.created_at,
+                    ar.face_status, ar.face_capture_id,
                     s.student_id, s.full_name, s.class,
                     COUNT(*) OVER() AS __total_count
              FROM attendance_records ar
@@ -195,9 +197,9 @@ const AttendanceModel = {
             recordsParams.push(MAX_RECORDS_PER_STUDENT);
 
             const recordsSql = `
-                SELECT id, student_id, check_in_time, device_id, status
+                SELECT id, student_id, check_in_time, device_id, status, face_status, face_capture_id
                 FROM (
-                    SELECT ar.id, ar.student_id, ar.check_in_time, ar.device_id, ar.status,
+                    SELECT ar.id, ar.student_id, ar.check_in_time, ar.device_id, ar.status, ar.face_status, ar.face_capture_id,
                            ROW_NUMBER() OVER (PARTITION BY ar.student_id ORDER BY ar.check_in_time DESC) as rn
                     FROM attendance_records ar
                     WHERE ${recordConditions.join(' AND ')}
@@ -218,6 +220,8 @@ const AttendanceModel = {
                     check_in_time: row.check_in_time,
                     device_id: row.device_id,
                     status: row.status,
+                    face_status: row.face_status,
+                    face_capture_id: row.face_capture_id,
                 });
             }
 
@@ -272,6 +276,7 @@ const AttendanceModel = {
 
         const sql = `
             SELECT ar.id, ar.card_uid, ar.check_in_time, ar.device_id, ar.status, ar.note, ar.created_at,
+                   ar.face_status, ar.face_capture_id,
                    s.student_id, s.full_name, s.class,
                    COUNT(*) OVER() AS __total_count
             FROM attendance_records ar

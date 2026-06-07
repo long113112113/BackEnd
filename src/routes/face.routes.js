@@ -18,4 +18,11 @@ router.get(
     FaceController.getByAttendance
 );
 
+router.get(
+    '/image/:attendanceId',
+    authMiddleware,
+    requireManagerOrAdmin,
+    FaceController.getImage
+);
+
 module.exports = router;
