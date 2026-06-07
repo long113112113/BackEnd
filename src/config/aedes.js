@@ -4,6 +4,7 @@ const http = require('http');
 const crypto = require('crypto');
 const { WebSocketServer, createWebSocketStream } = require('ws');
 const logger = require('../utils/logger');
+const DeviceKeyModel = require('../models/deviceKey.model');
 
 const requiredEnv = (name) => {
     const val = process.env[name];
@@ -85,6 +86,16 @@ const start = async () => {
                 const ownFaceTopic   = `${TOPIC_PREFIX}/face/capture/${client.id}`;
                 if (sub.topic !== ownResultTopic && sub.topic !== ownFaceTopic) {
                     return callback(new Error(`Subscribe denied: ESP32 can only subscribe to ${ownResultTopic} or ${ownFaceTopic}`));
+                }
+
+                if (sub.topic === ownFaceTopic) {
+                    DeviceKeyModel.registerCamera(client.id).then(registered => {
+                        if (registered) {
+                            logger.info(`[MQTT] Auto-registered camera device_id=${client.id}`);
+                        }
+                    }).catch(err => {
+                        logger.error(`[MQTT] Auto-register failed for device_id=${client.id}: ${err.message}`);
+                    });
                 }
             }
             callback(null, sub);

@@ -55,6 +55,18 @@ const DeviceKeyModel = {
         return row.rows[0] || null;
     },
 
+    registerCamera: async (deviceId) => {
+        const dummyKey = '0'.repeat(64);
+        const result = await db.query(
+            `INSERT INTO device_keys (device_id, hmac_key, role)
+             VALUES ($1, $2, 'cam')
+             ON CONFLICT (device_id) DO NOTHING
+             RETURNING *`,
+            [deviceId, dummyKey]
+        );
+        return result.rows[0] || null;
+    },
+
     updateLastSeq: async (deviceId, seq) => {
         await db.query(
             `UPDATE device_keys
@@ -76,7 +88,7 @@ const DeviceKeyModel = {
 
     findAll: async () => {
         const result = await db.query(
-            `SELECT id, device_id, last_seq, created_at, updated_at
+            `SELECT id, device_id, last_seq, role, created_at, updated_at
              FROM device_keys
              ORDER BY created_at DESC`
         );
