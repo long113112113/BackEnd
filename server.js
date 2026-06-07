@@ -88,7 +88,7 @@ const startServer = async () => {
         mqttConfig.connect(handleMqttMessage);
         aiGrpcServer.startServer();
 
-        httpServer = app.listen(config.port, () => {
+        httpServer = app.listen(config.port, '127.0.0.1', () => {
             const nets = os.networkInterfaces();
             let serverIp = 'localhost';
             for (const name of Object.keys(nets)) {
