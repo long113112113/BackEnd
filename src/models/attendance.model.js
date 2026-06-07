@@ -33,6 +33,13 @@ const AttendanceModel = {
         );
         return result.rows[0];
     },
+    findById: async (id) => {
+        const result = await db.query(
+            `SELECT * FROM attendance_records WHERE id = $1`,
+            [id]
+        );
+        return result.rows[0] || null;
+    },
     findByDate: async (date, page = 1, limit = 50) => {
         const offset = (page - 1) * limit;
         const result = await db.query(

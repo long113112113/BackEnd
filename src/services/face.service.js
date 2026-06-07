@@ -7,6 +7,7 @@ const mqttConfig = require('../config/mqtt');
 const FaceCaptureModel = require('../models/faceCapture.model');
 const DevicePairModel = require('../models/devicePair.model');
 const AttendanceModel = require('../models/attendance.model');
+const StudentModel = require('../models/student.model');
 const SSE_Broadcast = require('./sse.broadcast');
 const aiClient = require('./ai.grpc.server');
 
@@ -126,12 +127,22 @@ const handleFaceUpload = async ({ deviceId, attendanceId, captureToken, imageBuf
     }
 
     // Fire-and-forget gRPC call
+    const attendanceRecord = await AttendanceModel.findById(aid);
+    const studentId = attendanceRecord?.student_id || 0;
+    
+    let refEmbeddings = [];
+    if (studentId) {
+        const embeddings = await StudentModel.getEmbeddings(studentId);
+        if (embeddings && embeddings.length > 0) refEmbeddings = embeddings;
+    }
+
     aiClient.recognize({
         face_capture_id: capture.id,
         attendance_id: aid,
-        student_id_hint: 0, // resolved by attendance join if needed
+        student_id_hint: studentId,
         image: imageBuf,
         box: faceBox,
+        reference_embeddings: refEmbeddings,
     })
         .then(async (resp) => {
             await onAiResult(capture.id, aid, resp);

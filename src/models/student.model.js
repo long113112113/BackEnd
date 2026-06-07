@@ -6,6 +6,8 @@ const STUDENT_COLUMNS = 'id, student_id, full_name, class, card_uid, email, phon
 const StudentModel = {
     createTable: async () => {
         const sql = `
+            CREATE EXTENSION IF NOT EXISTS vector;
+
             CREATE TABLE IF NOT EXISTS students (
                 id SERIAL PRIMARY KEY,
                 student_id VARCHAR(20) UNIQUE NOT NULL,    
@@ -18,6 +20,17 @@ const StudentModel = {
                 is_active BOOLEAN DEFAULT true,
                 created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+
+            ALTER TABLE students
+                DROP COLUMN IF EXISTS face_embedding,
+                DROP COLUMN IF EXISTS face_enrolled_at;
+
+            CREATE TABLE IF NOT EXISTS face_embeddings (
+                id SERIAL PRIMARY KEY,
+                student_id INT REFERENCES students(id) ON DELETE CASCADE,
+                embedding vector(512) NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
             );
         `;
         await db.query(sql);
@@ -163,6 +176,38 @@ const StudentModel = {
             [id]
         );
         return result.rows[0] || null;
+    },
+
+    addEmbedding: async (studentId, embeddingArray) => {
+        const result = await db.query(
+            `INSERT INTO face_embeddings (student_id, embedding) VALUES ($1, $2::vector) RETURNING id`,
+            [studentId, JSON.stringify(embeddingArray)]
+        );
+        return result.rows[0];
+    },
+    getEmbeddings: async (studentId) => {
+        const result = await db.query(
+            `SELECT embedding::text FROM face_embeddings WHERE student_id = $1 ORDER BY created_at ASC`,
+            [studentId]
+        );
+        return result.rows.map(row => {
+            try {
+                return JSON.parse(row.embedding);
+            } catch (e) {
+                return null;
+            }
+        }).filter(e => e !== null);
+    },
+    clearEmbeddings: async (studentId) => {
+        await db.query(`DELETE FROM face_embeddings WHERE student_id = $1`, [studentId]);
+        return { ok: true };
+    },
+    getEmbeddingCount: async (studentId) => {
+        const result = await db.query(
+            `SELECT COUNT(*) as count FROM face_embeddings WHERE student_id = $1`,
+            [studentId]
+        );
+        return parseInt(result.rows[0].count, 10);
     },
 };
 

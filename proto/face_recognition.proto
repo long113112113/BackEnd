@@ -20,6 +20,7 @@ message WorkerMessage {
     WorkerRegistration register = 1;
     RecognizeResponse result = 2;
     Ping pong = 3;
+    ExtractFeatureResponse extract_result = 4;
   }
 }
 
@@ -31,6 +32,7 @@ message ServerMessage {
   oneof payload {
     RecognizeRequest task = 1;
     Ping ping = 2;
+    ExtractFeatureRequest extract_task = 3;
   }
 }
 
@@ -42,6 +44,10 @@ message FaceBox {
   float score = 5;
 }
 
+message FaceEmbedding {
+  repeated float vector = 1;
+}
+
 message RecognizeRequest {
   int32    face_capture_id = 1;
   int32    attendance_id   = 2;
@@ -49,6 +55,22 @@ message RecognizeRequest {
   bytes    image           = 4;  // raw JPEG
   FaceBox  box             = 5;
   int64    ts_ms           = 6;  // server clock at trigger
+  repeated FaceEmbedding reference_embeddings = 7;
+}
+
+message ExtractFeatureRequest {
+  int32  student_id_hint = 1;
+  bytes  image           = 2;  // raw JPEG
+  FaceBox box            = 3;
+  string request_id      = 4;  // correlation id
+}
+
+message ExtractFeatureResponse {
+  bool   success         = 1;
+  string request_id      = 2;
+  repeated float embedding = 3;  // face embedding vector (e.g. 512-d)
+  float  quality_score   = 4;    // image quality 0..1
+  string error           = 5;    // error message if !success
 }
 
 message RecognizeResponse {

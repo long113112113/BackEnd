@@ -1,4 +1,5 @@
 const path = require('path');
+const crypto = require('crypto');
 const logger = require('../utils/logger');
 const config = require('../config');
 
@@ -7,6 +8,7 @@ let protoLoader;
 let server = null;
 let activeWorkers = new Set();
 let pendingTasks = new Map();
+let pendingExtracts = new Map();
 
 const PROTO_PATH = path.join(__dirname, '..', '..', 'proto', 'face_recognition.proto');
 
@@ -123,6 +125,22 @@ const startServer = () => {
                     } else {
                         logger.debug(`[AI Worker] Received result for unknown/expired task: ${taskId}`);
                     }
+                } else if (workerMsg.extract_result) {
+                    const resp = workerMsg.extract_result;
+                    const taskId = resp.request_id;
+                    const task = pendingExtracts.get(taskId);
+                    if (task) {
+                        clearTimeout(task.timeout);
+                        pendingExtracts.delete(taskId);
+                        task.resolve({
+                            success: !!resp.success,
+                            embedding: resp.embedding || [],
+                            quality_score: resp.quality_score || 0,
+                            error: resp.error || '',
+                        });
+                    } else {
+                        logger.debug(`[AI Worker] Received extract result for unknown/expired task: ${taskId}`);
+                    }
                 }
             });
 
@@ -225,6 +243,7 @@ const recognize = (req) => {
                 score: req.box?.score || 0,
             },
             ts_ms: req.ts_ms || Date.now(),
+            reference_embeddings: (req.reference_embeddings || []).map(e => ({ vector: e })),
         };
 
         try {
@@ -238,4 +257,64 @@ const recognize = (req) => {
     });
 };
 
-module.exports = { startServer, stopServer, recognize };
+/**
+ * Extract face embedding from image.
+ * @param {{student_id_hint:number, image:Buffer, box?:{x:number,y:number,w:number,h:number,score:number}, request_id?:string}} req
+ * @returns {Promise<{success:boolean, embedding:number[], quality_score:number, error:string}>}
+ */
+const extractFeature = (req) => {
+    return new Promise((resolve, reject) => {
+        if (!config.ai.enabled || !server) {
+            // Stub mode
+            return resolve({
+                success: true,
+                embedding: Array(512).fill(0.1),
+                quality_score: 0.99,
+                error: '',
+            });
+        }
+
+        if (activeWorkers.size === 0) {
+            return reject(new Error('No active AI workers available'));
+        }
+
+        const workers = Array.from(activeWorkers);
+        const selectedWorker = workers[Math.floor(Math.random() * workers.length)];
+
+        const taskId = req.request_id || crypto.randomUUID();
+        
+        // Timeout 8 seconds for extraction
+        const timeout = setTimeout(() => {
+            if (pendingExtracts.has(taskId)) {
+                pendingExtracts.delete(taskId);
+                reject(new Error('AI Worker extraction timeout'));
+            }
+        }, 8000);
+
+        pendingExtracts.set(taskId, { resolve, reject, timeout });
+
+        const requestPayload = {
+            student_id_hint: req.student_id_hint || 0,
+            image: req.image || Buffer.alloc(0),
+            box: {
+                x: req.box?.x || 0,
+                y: req.box?.y || 0,
+                w: req.box?.w || 0,
+                h: req.box?.h || 0,
+                score: req.box?.score || 0,
+            },
+            request_id: taskId,
+        };
+
+        try {
+            selectedWorker.write({ extract_task: requestPayload });
+        } catch (err) {
+            clearTimeout(timeout);
+            pendingExtracts.delete(taskId);
+            activeWorkers.delete(selectedWorker);
+            reject(new Error(`Failed to write to worker: ${err.message}`));
+        }
+    });
+};
+
+module.exports = { startServer, stopServer, recognize, extractFeature };
