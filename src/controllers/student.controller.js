@@ -174,6 +174,41 @@ const StudentController = {
             next(err);
         }
     },
+
+    /**
+     * POST /api/students/:id/trigger-enroll-cam - Kích hoạt camera ESP32 chụp ảnh đăng ký
+     */
+    triggerEnrollCam: async (req, res, next) => {
+        try {
+            const studentId = parseInt(req.params.id, 10);
+            if (!studentId) {
+                return res.status(400).json({ success: false, message: 'Invalid student ID' });
+            }
+            const { cam_device_id } = req.body;
+            if (!cam_device_id || typeof cam_device_id !== 'string') {
+                return res.status(400).json({ success: false, message: 'cam_device_id is required' });
+            }
+
+            const student = await StudentModel.findById(studentId);
+            if (!student) {
+                return res.status(404).json({ success: false, message: 'Student not found' });
+            }
+
+            const faceService = require('../services/face.service');
+            const capture = await faceService.triggerFaceEnroll({
+                studentId,
+                camDeviceId: cam_device_id,
+            });
+
+            res.json({
+                success: true,
+                message: 'Enrollment capture triggered via MQTT',
+                face_capture_id: capture.id,
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
 };
 
 module.exports = StudentController;

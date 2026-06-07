@@ -28,16 +28,30 @@ const FaceCaptureModel = {
             ALTER TABLE attendance_records
                 ADD COLUMN IF NOT EXISTS face_status     VARCHAR(20) DEFAULT 'pending',
                 ADD COLUMN IF NOT EXISTS face_capture_id INT REFERENCES face_captures(id);
+                
+            ALTER TABLE face_captures
+                ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'attendance',
+                ADD COLUMN IF NOT EXISTS student_id INT REFERENCES students(id);
         `;
         await db.query(sql);
     },
 
     createPending: async ({ attendance_id, device_id, capture_token }) => {
         const result = await db.query(
-            `INSERT INTO face_captures (attendance_id, device_id, capture_token, status)
-             VALUES ($1, $2, $3, 'pending')
+            `INSERT INTO face_captures (attendance_id, device_id, capture_token, status, type)
+             VALUES ($1, $2, $3, 'pending', 'attendance')
              RETURNING *`,
             [attendance_id, device_id, capture_token]
+        );
+        return result.rows[0];
+    },
+
+    createEnrollmentPending: async ({ student_id, device_id, capture_token }) => {
+        const result = await db.query(
+            `INSERT INTO face_captures (student_id, device_id, capture_token, status, type)
+             VALUES ($1, $2, $3, 'pending', 'enroll')
+             RETURNING *`,
+            [student_id, device_id, capture_token]
         );
         return result.rows[0];
     },

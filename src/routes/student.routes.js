@@ -38,4 +38,11 @@ router.post('/:id/enroll-face',
 router.delete('/:id/enroll-face', authMiddleware, requireAdmin, validate(studentIdParam), EnrollController.unenroll);
 router.get('/:id/enroll-face', authMiddleware, requireManagerOrAdmin, validate(studentIdParam), EnrollController.status);
 
+router.post('/:id/trigger-enroll-cam',
+    authMiddleware,
+    requireManagerOrAdmin,
+    validate(studentIdParam),
+    StudentController.triggerEnrollCam
+);
+
 module.exports = router;

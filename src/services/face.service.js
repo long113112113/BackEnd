@@ -59,6 +59,27 @@ const triggerFaceCapture = async ({ nfcDeviceId, attendanceId, studentIdHint }) 
     return capture;
 };
 
+const triggerFaceEnroll = async ({ studentId, camDeviceId }) => {
+    const token = crypto.randomBytes(32).toString('hex');
+    const capture = await FaceCaptureModel.createEnrollmentPending({
+        student_id: studentId,
+        device_id: camDeviceId,
+        capture_token: token,
+    });
+
+    const topic = `${mqttConfig.TOPICS.FACE_CAPTURE}/${camDeviceId}`;
+    const payload = {
+        attendance_id: 0, // 0 indicates enrollment to the firmware
+        student_id_hint: studentId,
+        capture_token: token,
+        ts: Date.now(),
+        deadline_ts: Date.now() + config.face.captureTimeoutMs,
+    };
+    mqttConfig.publish(topic, payload);
+    logger.info(`[Face] Triggered enrollment capture for student=${studentId} → cam=${camDeviceId}`);
+    return capture;
+};
+
 const handleFaceUpload = async ({ deviceId, attendanceId, captureToken, imageBuf, faceBox, faceScore, faceDetected }) => {
     if (!deviceId || !DEVICE_ID_REGEX.test(deviceId)) {
         return { ok: false, status: 400, message: 'invalid device_id' };
@@ -78,8 +99,10 @@ const handleFaceUpload = async ({ deviceId, attendanceId, captureToken, imageBuf
     if (capture.device_id !== deviceId) {
         return { ok: false, status: 403, message: 'device_id mismatch' };
     }
-    if (capture.attendance_id !== aid) {
-        return { ok: false, status: 400, message: 'attendance_id mismatch' };
+    if (capture.type === 'attendance') {
+        if (capture.attendance_id !== aid) {
+            return { ok: false, status: 400, message: 'attendance_id mismatch' };
+        }
     }
     if (capture.used_at) {
         return { ok: false, status: 409, message: 'capture_token already used' };
@@ -118,19 +141,64 @@ const handleFaceUpload = async ({ deviceId, attendanceId, captureToken, imageBuf
     if (!faceDetected || !imageBuf || imageBuf.length === 0) {
         // Short-circuit: no face detected, no need to call AI
         await FaceCaptureModel.setAiResult(capture.id, { status: 'no_face', ai_request_id: null });
-        await AttendanceModel.setFaceStatus(aid, {
-            face_status: 'no_face',
-            face_capture_id: capture.id,
-        });
-        SSE_Broadcast.broadcast('face-results', 'face-decision', {
-            attendance_id: aid,
-            face_capture_id: capture.id,
-            decision: 'no_face',
-        });
+        
+        if (capture.type === 'attendance') {
+            await AttendanceModel.setFaceStatus(aid, {
+                face_status: 'no_face',
+                face_capture_id: capture.id,
+            });
+            SSE_Broadcast.broadcast('face-results', 'face-decision', {
+                attendance_id: aid,
+                face_capture_id: capture.id,
+                decision: 'no_face',
+            });
+        } else if (capture.type === 'enroll') {
+            SSE_Broadcast.broadcast('face-results', 'enroll-decision', {
+                student_id: capture.student_id,
+                face_capture_id: capture.id,
+                decision: 'no_face',
+            });
+        }
         return { ok: true, face_capture_id: capture.id, status: 'no_face' };
     }
 
-    // Fire-and-forget gRPC call
+    if (capture.type === 'enroll') {
+        // Enrollment flow: Extract feature and save to student
+        aiClient.extractFeature({
+            student_id_hint: capture.student_id,
+            image: imageBuf,
+            box: faceBox,
+        }).then(async (resp) => {
+            if (resp.success && resp.embedding && resp.embedding.length > 0) {
+                await StudentModel.addEmbedding(capture.student_id, resp.embedding);
+                await FaceCaptureModel.setAiResult(capture.id, { status: 'matched', ai_request_id: null });
+                SSE_Broadcast.broadcast('face-results', 'enroll-decision', {
+                    student_id: capture.student_id,
+                    face_capture_id: capture.id,
+                    decision: 'success',
+                });
+                logger.info(`[Face] Extracted and saved embedding for student=${capture.student_id}`);
+            } else {
+                await FaceCaptureModel.setAiResult(capture.id, { status: 'error', ai_request_id: null });
+                SSE_Broadcast.broadcast('face-results', 'enroll-decision', {
+                    student_id: capture.student_id,
+                    face_capture_id: capture.id,
+                    decision: 'error',
+                });
+            }
+        }).catch(async (err) => {
+            logger.error(`[Face] AI Extract error capture=${capture.id}: ${err.message}`);
+            await FaceCaptureModel.setAiResult(capture.id, { status: 'ai_error', ai_request_id: null });
+            SSE_Broadcast.broadcast('face-results', 'enroll-decision', {
+                student_id: capture.student_id,
+                face_capture_id: capture.id,
+                decision: 'ai_error',
+            });
+        });
+        return { ok: true, face_capture_id: capture.id, status: 'processing' };
+    }
+
+    // Fire-and-forget gRPC call for Attendance
     const attendanceRecord = await AttendanceModel.findById(aid);
     const studentId = attendanceRecord?.student_id || 0;
     
@@ -197,4 +265,4 @@ const getByAttendance = async (attendanceId) => {
     return FaceCaptureModel.findLatestByAttendance(attendanceId);
 };
 
-module.exports = { triggerFaceCapture, handleFaceUpload, onAiResult, getByAttendance };
+module.exports = { triggerFaceCapture, triggerFaceEnroll, handleFaceUpload, onAiResult, getByAttendance };

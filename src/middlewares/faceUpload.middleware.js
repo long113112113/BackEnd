@@ -12,7 +12,7 @@ const parseHeaders = (req, res, next) => {
         return res.status(400).json({ success: false, message: 'invalid or missing X-Device-Id' });
     }
     const aid = parseInt(attendanceId, 10);
-    if (!aid || aid <= 0) {
+    if (Number.isNaN(aid) || aid < 0) {
         return res.status(400).json({ success: false, message: 'invalid X-Attendance-Id' });
     }
     if (!captureToken || !/^[a-f0-9]{64}$/.test(captureToken)) {
