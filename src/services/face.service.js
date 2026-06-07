@@ -179,12 +179,23 @@ const handleFaceUpload = async ({ deviceId, attendanceId, captureToken, imageBuf
                 });
                 logger.info(`[Face] Extracted and saved embedding for student=${capture.student_id}`);
             } else {
-                await FaceCaptureModel.setAiResult(capture.id, { status: 'error', ai_request_id: null });
+                // Determine specific failure reason from AI error message
+                const aiError = (resp.error || '').toLowerCase();
+                let decision = 'error';
+                if (aiError.includes('not looking straight') || aiError.includes('pitch') || aiError.includes('yaw')) {
+                    decision = 'bad_pose';
+                } else if (aiError.includes('no face')) {
+                    decision = 'no_face';
+                }
+
+                await FaceCaptureModel.setAiResult(capture.id, { status: decision, ai_request_id: null });
                 SSE_Broadcast.broadcast('face-results', 'enroll-decision', {
                     student_id: capture.student_id,
                     face_capture_id: capture.id,
-                    decision: 'error',
+                    decision,
+                    error: resp.error || 'Unknown extraction error',
                 });
+                logger.warn(`[Face] Enrollment failed for student=${capture.student_id}: ${resp.error}`);
             }
         }).catch(async (err) => {
             logger.error(`[Face] AI Extract error capture=${capture.id}: ${err.message}`);
@@ -193,6 +204,7 @@ const handleFaceUpload = async ({ deviceId, attendanceId, captureToken, imageBuf
                 student_id: capture.student_id,
                 face_capture_id: capture.id,
                 decision: 'ai_error',
+                error: err.message,
             });
         });
         return { ok: true, face_capture_id: capture.id, status: 'processing' };
@@ -254,11 +266,12 @@ const onAiResult = async (faceCaptureId, attendanceId, aiResp) => {
         attendance_id: attendanceId,
         face_capture_id: faceCaptureId,
         student_id: aiResp.student_id,
+        matched: !!aiResp.matched,
         decision,
         score: aiResp.score,
         liveness_score: aiResp.liveness_score,
     });
-    logger.info(`[Face] AI result attendance=${attendanceId} decision=${decision} score=${aiResp.score?.toFixed?.(2)}`);
+    logger.info(`[Face] AI result attendance=${attendanceId} decision=${decision} score=${aiResp.score?.toFixed?.(2)} matched=${!!aiResp.matched}`);
 };
 
 const getByAttendance = async (attendanceId) => {
