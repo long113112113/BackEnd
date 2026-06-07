@@ -59,8 +59,8 @@ const startServer = () => {
             // Ping/pong state
             /** @type {{timestamp:number, timeout:NodeJS.Timeout}|null} */
             let pendingPing = null;
-            const PING_INTERVAL_MS = 15000;
-            const PING_TIMEOUT_MS = 5000;
+            const PING_INTERVAL_MS = 60000;
+            const PING_TIMEOUT_MS = 10000;
 
             const cleanupWorker = () => {
                 if (pendingPing) {

@@ -28,10 +28,14 @@ const triggerFaceCapture = async ({ nfcDeviceId, attendanceId, studentIdHint }) 
     const pair = await DevicePairModel.findByNfc(nfcDeviceId);
     if (!pair) {
         logger.info(`[Face] No cam paired for nfc_device=${nfcDeviceId}, skip trigger`);
+        await AttendanceModel.setFaceStatus(attendanceId, { face_status: 'no_cam' });
+        SSE_Broadcast.broadcast('face-results', 'face-decision', { attendance_id: attendanceId, decision: 'no_cam' });
         return null;
     }
     if (!DEVICE_ID_REGEX.test(pair.cam_device_id)) {
         logger.info(`[Face] Invalid cam_device_id=${pair.cam_device_id}`);
+        await AttendanceModel.setFaceStatus(attendanceId, { face_status: 'no_cam' });
+        SSE_Broadcast.broadcast('face-results', 'face-decision', { attendance_id: attendanceId, decision: 'no_cam' });
         return null;
     }
 
