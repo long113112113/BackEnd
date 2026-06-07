@@ -147,15 +147,15 @@ const FaceCaptureModel = {
      * @param {number} studentId - The student PK.
      * @returns {Promise<object|null>} The capture row or null.
      */
-    findLatestEnrollmentByStudent: async (studentId) => {
+    findLatestEnrollmentByStudent: async (studentId, offset = 0) => {
         const result = await db.query(
             `SELECT * FROM face_captures
              WHERE student_id = $1
                AND type = 'enroll'
                AND status = 'matched'
                AND image_path IS NOT NULL
-             ORDER BY created_at DESC LIMIT 1`,
-            [studentId]
+             ORDER BY created_at DESC LIMIT 1 OFFSET $2`,
+            [studentId, offset]
         );
         return result.rows[0] || null;
     },

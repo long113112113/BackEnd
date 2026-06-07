@@ -46,11 +46,12 @@ const EnrollController = {
     getEnrollImage: async (req, res, next) => {
         try {
             const studentId = parseInt(req.params.id, 10);
+            const index = parseInt(req.query.index || '0', 10);
             if (isNaN(studentId)) {
                 return res.status(400).json({ success: false, message: 'Invalid student ID' });
             }
 
-            const capture = await FaceCaptureModel.findLatestEnrollmentByStudent(studentId);
+            const capture = await FaceCaptureModel.findLatestEnrollmentByStudent(studentId, index);
             if (!capture || !capture.image_path) {
                 return res.status(404).json({ success: false, message: 'No enrollment image found' });
             }
