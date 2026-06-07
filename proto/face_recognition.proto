@@ -11,10 +11,15 @@ service FaceRecognition {
   rpc ConnectWorker(stream WorkerMessage) returns (stream ServerMessage);
 }
 
+message Ping {
+  int64 timestamp = 1;
+}
+
 message WorkerMessage {
   oneof payload {
     WorkerRegistration register = 1;
     RecognizeResponse result = 2;
+    Ping pong = 3;
   }
 }
 
@@ -25,6 +30,7 @@ message WorkerRegistration {
 message ServerMessage {
   oneof payload {
     RecognizeRequest task = 1;
+    Ping ping = 2;
   }
 }
 

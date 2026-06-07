@@ -48,10 +48,55 @@ const startServer = () => {
             activeWorkers.add(call);
             logger.info('[AI Worker] New worker connected.');
 
+            // Ping/pong state
+            /** @type {{timestamp:number, timeout:NodeJS.Timeout}|null} */
+            let pendingPing = null;
+            const PING_INTERVAL_MS = 15000;
+            const PING_TIMEOUT_MS = 5000;
+
+            const cleanupWorker = () => {
+                if (pendingPing) {
+                    clearTimeout(pendingPing.timeout);
+                    pendingPing = null;
+                }
+                clearInterval(pingTimer);
+                activeWorkers.delete(call);
+            };
+
+            const pingTimer = setInterval(() => {
+                if (pendingPing) {
+                    logger.warn(`[AI Worker] Ping not answered by ${workerId}, disconnecting`);
+                    cleanupWorker();
+                    call.end();
+                    return;
+                }
+                const ts = Date.now();
+                pendingPing = {
+                    timestamp: ts,
+                    timeout: setTimeout(() => {
+                        logger.warn(`[AI Worker] Ping timeout for ${workerId}, disconnecting`);
+                        pendingPing = null;
+                        cleanupWorker();
+                        call.end();
+                    }, PING_TIMEOUT_MS),
+                };
+                call.write({ ping: { timestamp: ts } }, (err) => {
+                    if (err) {
+                        logger.warn(`[AI Worker] Failed to send ping to ${workerId}: ${err.message}`);
+                    }
+                });
+            }, PING_INTERVAL_MS);
+
             call.on('data', (workerMsg) => {
                 if (workerMsg.register) {
                     workerId = workerMsg.register.worker_id;
                     logger.info(`[AI Worker] Worker registered: ${workerId}`);
+                } else if (workerMsg.pong) {
+                    if (pendingPing) {
+                        clearTimeout(pendingPing.timeout);
+                        pendingPing = null;
+                        logger.debug(`[AI Worker] Pong received from ${workerId} (latency: ${Date.now() - Number(workerMsg.pong.timestamp)}ms)`);
+                    }
                 } else if (workerMsg.result) {
                     const resp = workerMsg.result;
                     // We expect the worker to echo the face_capture_id into the request_id field
@@ -77,12 +122,12 @@ const startServer = () => {
 
             call.on('end', () => {
                 logger.info(`[AI Worker] Worker disconnected: ${workerId}`);
-                activeWorkers.delete(call);
+                cleanupWorker();
             });
 
             call.on('error', (err) => {
                 logger.error(`[AI Worker] Worker error (${workerId}): ${err.message}`);
-                activeWorkers.delete(call);
+                cleanupWorker();
             });
         }
     });
