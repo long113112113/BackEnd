@@ -1,0 +1,4 @@
+## 2025-02-23 - Timing attack leak (CWE-208) in custom string equality function
+**Vulnerability:** A custom string equality function (`timingSafeEqual` in `src/config/aedes.js`) called `crypto.timingSafeEqual` but first compared lengths and returned early if they mismatched, re-introducing a timing leak allowing length guessing.
+**Learning:** Returning early on length mismatch before calling `crypto.timingSafeEqual` defeats the purpose of constant-time comparison. Additionally, `crypto.timingSafeEqual` throws an exception if buffers are of different lengths which can lead to DoS.
+**Prevention:** Always hash the inputs (e.g., using SHA-256) before passing them to `crypto.timingSafeEqual`. This ensures the lengths match and the comparison is completely constant-time, preventing both timing attacks and length-mismatch exceptions.
