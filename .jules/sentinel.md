@@ -1,0 +1,4 @@
+## 2026-06-10 - Fix CWE-208 Timing Attack Vulnerability in MQTT Authentication
+**Vulnerability:** The custom `timingSafeEqual` function in `src/config/aedes.js` returns early if string lengths are different. This causes a timing leak (CWE-208), which can be exploited to bypass authentication by revealing string lengths or timing data. It also can cause an exception (DoS) if strings are of unequal length in Node's crypto.timingSafeEqual.
+**Learning:** Checking string lengths before using `crypto.timingSafeEqual` introduces timing side-channels.
+**Prevention:** To prevent timing side channels, compute a cryptographic hash (like SHA-256) of both strings first, and then compare the hashes using `crypto.timingSafeEqual`. This ensures that `crypto.timingSafeEqual` is always comparing strings of the same length, regardless of the input size.
