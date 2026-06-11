@@ -1,0 +1,4 @@
+## 2024-06-11 - MQTT Authentication Timing Attack via Length Mismatch (CWE-208)
+**Vulnerability:** A custom `timingSafeEqual` function in `src/config/aedes.js` compared string lengths and returned early if they mismatched, before calling `crypto.timingSafeEqual`. This length check exposes a timing leak, which could allow attackers to guess the lengths of the `MQTT_PASSWORD` or `MQTT_INTERNAL_PASSWORD`.
+**Learning:** Returning early on length mismatches defeats the purpose of constant-time string comparison algorithms. When the lengths of secrets are unknown, comparing their lengths directly introduces an observable timing difference.
+**Prevention:** Always hash the input values (e.g., using SHA-256) before passing them to `crypto.timingSafeEqual`. This guarantees that both inputs to the timing-safe comparison are always of equal length, avoiding unhandled length-mismatch exceptions (DoS) and entirely preventing the timing attack vector.
