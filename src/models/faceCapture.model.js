@@ -39,7 +39,9 @@ const FaceCaptureModel = {
                 
             ALTER TABLE face_captures
                 ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'attendance',
-                ADD COLUMN IF NOT EXISTS student_id INT REFERENCES students(id);
+                ADD COLUMN IF NOT EXISTS student_id INT REFERENCES students(id),
+                ADD COLUMN IF NOT EXISTS match_score REAL,
+                ADD COLUMN IF NOT EXISTS liveness_score REAL;
         `;
         await db.query(sql);
     },
@@ -152,17 +154,19 @@ const FaceCaptureModel = {
         return result.rows[0] || null;
     },
 
-    setAiResult: async (id, { status, ai_request_id }) => {
+    setAiResult: async (id, { status, ai_request_id, match_score, liveness_score }) => {
         const TERMINAL_STATUSES = ['match', 'matched', 'mismatch', 'no_face', 'spoof'];
         const shouldSetMatchedAt = TERMINAL_STATUSES.includes(status);
         const result = await db.query(
             `UPDATE face_captures
              SET status        = $2,
                  ai_request_id = COALESCE($3, ai_request_id),
-                 matched_at    = CASE WHEN $4::boolean THEN NOW() ELSE matched_at END
+                 match_score   = COALESCE($4, match_score),
+                 liveness_score = COALESCE($5, liveness_score),
+                 matched_at    = CASE WHEN $6::boolean THEN NOW() ELSE matched_at END
              WHERE id = $1
              RETURNING *`,
-            [id, status, ai_request_id || null, shouldSetMatchedAt]
+            [id, status, ai_request_id || null, match_score || null, liveness_score || null, shouldSetMatchedAt]
         );
         return result.rows[0] || null;
     },

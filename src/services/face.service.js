@@ -325,6 +325,8 @@ const onAiResult = async (faceCaptureId, attendanceId, aiResp) => {
     await FaceCaptureModel.setAiResult(faceCaptureId, {
         status: decision,
         ai_request_id: aiResp.request_id || null,
+        match_score: aiResp.score,
+        liveness_score: aiResp.liveness_score,
     });
     await AttendanceModel.setFaceStatus(attendanceId, {
         face_status: decision,
