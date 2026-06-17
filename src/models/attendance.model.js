@@ -108,6 +108,27 @@ const AttendanceModel = {
             client.release();
         }
     },
+
+    /**
+     * Finds the latest attendance row for a student inside the cooldown window.
+     * @param {number} studentId - The student PK.
+     * @param {number} cooldownMinutes - Cooldown window in minutes.
+     * @returns {Promise<object|null>} The newest matching attendance row or null.
+     */
+    findLatestByStudentWithinCooldown: async (studentId, cooldownMinutes) => {
+        const minutes = Math.max(1, parseInt(cooldownMinutes, 10) || 3);
+        const result = await db.query(
+            `SELECT *
+             FROM attendance_records
+             WHERE student_id = $1
+               AND check_in_time > NOW() - make_interval(mins => $2)
+             ORDER BY check_in_time DESC
+             LIMIT 1`,
+            [studentId, minutes]
+        );
+        return result.rows[0] || null;
+    },
+
     getStats: async () => {
         const result = await db.query(`
             SELECT 

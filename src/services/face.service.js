@@ -129,6 +129,11 @@ const triggerFaceCapture = async ({ nfcDeviceId, attendanceId, studentIdHint }) 
         return null;
     }
 
+    await AttendanceModel.setFaceStatus(attendanceId, {
+        face_status: 'pending',
+        face_capture_id: capture.id,
+    });
+
     const topic = `${mqttConfig.TOPICS.FACE_CAPTURE}/${pair.cam_device_id}`;
     const payload = buildCapturePayload({ attendanceId, studentIdHint, token });
     mqttConfig.publish(topic, payload);

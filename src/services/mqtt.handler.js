@@ -19,6 +19,14 @@ const encryptError = (aesKey, device_id, status, message, extra = {}) => {
     return resultPayload;
 };
 
+const isRetryableFaceStatus = (faceStatus) => {
+    if (!faceStatus || faceStatus === 'pending') {
+        return false;
+    }
+
+    return faceStatus !== 'match' && faceStatus !== 'matched';
+};
+
 const getFaceStatusDeviceId = (topic) => {
     const prefix = `${mqttConfig.TOPICS.FACE_STATUS}/`;
     if (!topic.startsWith(prefix)) {
@@ -178,6 +186,38 @@ const handleMqttMessage = async (topic, message) => {
             }, config.attendance.cooldownMinutes);
 
             if (!record) {
+                const retryableAttendance = await AttendanceModel.findLatestByStudentWithinCooldown(
+                    student.id,
+                    config.attendance.cooldownMinutes
+                );
+
+                if (retryableAttendance && isRetryableFaceStatus(retryableAttendance.face_status)) {
+                    logger.info(
+                        `[MQTT] Retrying face capture for attendance=${retryableAttendance.id} ` +
+                        `student=${student.student_id} face_status=${retryableAttendance.face_status}`
+                    );
+
+                    FaceService.triggerFaceCapture({
+                        nfcDeviceId: device_id,
+                        attendanceId: retryableAttendance.id,
+                        studentIdHint: student.id,
+                    }).catch((err) => {
+                        logger.error(`[MQTT] Failed to retry face capture: ${err.message}`);
+                    });
+
+                    const resultPayload = {
+                        status: 'success',
+                        name: student.full_name,
+                        mssv: student.student_id,
+                        class: student.class,
+                        card_uid,
+                        retry_face: true,
+                    };
+                    const enc = encryptAesGcm(aesKey, JSON.stringify(resultPayload));
+                    mqttConfig.publish(`${mqttConfig.TOPICS.RESULT}/${device_id}`, { device_id, encrypted: enc });
+                    return;
+                }
+
                 logger.info(`[MQTT] ${student.full_name} has already checked in today.`);
                 const resultPayload = {
                     status: 'duplicate',
