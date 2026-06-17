@@ -37,6 +37,17 @@ const parseTrustProxy = (val) => {
     return !isNaN(num) ? num : false;
 };
 
+let cookieSecure = isProd;
+if (process.env.COOKIE_SECURE !== undefined) {
+    cookieSecure = process.env.COOKIE_SECURE === 'true';
+    if (isProd && !cookieSecure) {
+        console.warn('\n[WARNING] COOKIE_SECURE is set to false in production!');
+        console.warn('Modern browsers will REJECT cookies with SameSite=None unless Secure is true.');
+        console.warn('Authentication will fail unless you know exactly what you are doing.\n');
+    }
+}
+const cookieSameSite = (isProd && cookieSecure) ? 'none' : 'lax';
+
 module.exports = {
     port,
     nodeEnv: process.env.NODE_ENV || 'development',
@@ -55,8 +66,8 @@ module.exports = {
         refreshMaxAgeMs: parseExpiresInMs(process.env.JWT_REFRESH_EXPIRES_IN || '7d'),
     },
     cookie: {
-        secure: process.env.COOKIE_SECURE === 'true',
-        sameSite: (isProd && process.env.COOKIE_SECURE !== 'false') ? 'none' : 'lax',
+        secure: cookieSecure,
+        sameSite: cookieSameSite,
     },
     attendance: {
         cooldownMinutes: Math.max(1, parseInt(process.env.ATTENDANCE_COOLDOWN_MINUTES, 10) || 3),

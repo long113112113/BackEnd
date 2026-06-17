@@ -90,6 +90,17 @@ const triggerFaceCapture = async ({ nfcDeviceId, attendanceId, studentIdHint }) 
         capture_token: token,
     });
 
+    if (!capture) {
+        logger.warn(`[Face] Camera busy (race caught) cam=${pair.cam_device_id} attendance=${attendanceId}`);
+        await AttendanceModel.setFaceStatus(attendanceId, { face_status: 'cam_busy' });
+        SSE_Broadcast.broadcast('face-results', 'face-decision', {
+            attendance_id: attendanceId,
+            student_id: studentIdHint,
+            decision: 'cam_busy',
+        });
+        return null;
+    }
+
     const topic = `${mqttConfig.TOPICS.FACE_CAPTURE}/${pair.cam_device_id}`;
     const payload = {
         attendance_id: attendanceId,
@@ -127,6 +138,11 @@ const triggerFaceEnroll = async ({ studentId, camDeviceId }) => {
         device_id: camDeviceId,
         capture_token: token,
     });
+
+    if (!capture) {
+        logger.warn(`[Face] Camera busy (race caught) cam=${camDeviceId} enroll_student=${studentId}`);
+        throw createHttpError(409, 'Camera is busy processing another capture');
+    }
 
     const topic = `${mqttConfig.TOPICS.FACE_CAPTURE}/${camDeviceId}`;
     const payload = {
@@ -232,7 +248,7 @@ const handleFaceUpload = async ({ deviceId, attendanceId, captureToken, imageBuf
         }).then(async (resp) => {
             if (resp.success && resp.embedding && resp.embedding.length > 0) {
                 await StudentModel.addEmbedding(capture.student_id, resp.embedding);
-                await FaceCaptureModel.setAiResult(capture.id, { status: 'matched', ai_request_id: null });
+                await FaceCaptureModel.setAiResult(capture.id, { status: 'match', ai_request_id: null });
                 SSE_Broadcast.broadcast('face-results', 'enroll-decision', {
                     student_id: capture.student_id,
                     face_capture_id: capture.id,

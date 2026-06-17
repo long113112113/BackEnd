@@ -13,8 +13,12 @@ const MAX_CHANNELS_PER_USER = 2;
 const MAX_CONNECTIONS_PER_USER_PER_CHANNEL = 10;
 
 const validateDateRange = (startDate, endDate, maxDays = MAX_DATE_RANGE_DAYS) => {
+    if (!startDate && !endDate) return { valid: true };
+    if (!startDate || !endDate) return { valid: false, message: 'Both start_date and end_date are required' };
+
     const start = new Date(startDate);
     const end = new Date(endDate);
+
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         return { valid: false, message: 'Invalid date format' };
     }
@@ -108,8 +112,9 @@ const evictUserChannel = (channelKey, userId) => {
 
 const startPoller = (channelKey, userId, startDate, endDate) => {
     if (activePollers.has(channelKey)) {
+        const existingInterval = activePollers.get(channelKey);
         activePollers.delete(channelKey);
-        activePollers.set(channelKey, activePollers.get(channelKey));
+        activePollers.set(channelKey, existingInterval);
         return;
     }
 
@@ -193,7 +198,7 @@ const DashboardController = {
             if (!endCheck.valid) {
                 return res.status(400).json({ success: false, message: endCheck.message });
             }
-            if (start_date && end_date) {
+            if (start_date || end_date) {
                 const rangeCheck = validateDateRange(start_date, end_date);
                 if (!rangeCheck.valid) {
                     return res.status(400).json({ success: false, message: rangeCheck.message });
@@ -220,7 +225,7 @@ const DashboardController = {
         if (!endCheck.valid) {
             return res.status(400).json({ success: false, message: endCheck.message });
         }
-        if (start_date && end_date) {
+        if (start_date || end_date) {
             const rangeCheck = validateDateRange(start_date, end_date);
             if (!rangeCheck.valid) {
                 return res.status(400).json({ success: false, message: rangeCheck.message });

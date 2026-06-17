@@ -29,6 +29,9 @@ const FaceCaptureModel = {
             CREATE INDEX IF NOT EXISTS idx_face_captures_device_active
                 ON face_captures(device_id, created_at DESC)
                 WHERE status IN ('pending', 'ai_processing');
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_face_captures_device_active_uniq
+                ON face_captures(device_id)
+                WHERE status IN ('pending', 'ai_processing');
 
             ALTER TABLE attendance_records
                 ADD COLUMN IF NOT EXISTS face_status     VARCHAR(20) DEFAULT 'pending',
@@ -45,20 +48,22 @@ const FaceCaptureModel = {
         const result = await db.query(
             `INSERT INTO face_captures (attendance_id, device_id, capture_token, status, type)
              VALUES ($1, $2, $3, 'pending', 'attendance')
+             ON CONFLICT (device_id) WHERE status IN ('pending', 'ai_processing') DO NOTHING
              RETURNING *`,
             [attendance_id, device_id, capture_token]
         );
-        return result.rows[0];
+        return result.rows[0] || null;
     },
 
     createEnrollmentPending: async ({ student_id, device_id, capture_token }) => {
         const result = await db.query(
             `INSERT INTO face_captures (student_id, device_id, capture_token, status, type)
              VALUES ($1, $2, $3, 'pending', 'enroll')
+             ON CONFLICT (device_id) WHERE status IN ('pending', 'ai_processing') DO NOTHING
              RETURNING *`,
             [student_id, device_id, capture_token]
         );
-        return result.rows[0];
+        return result.rows[0] || null;
     },
 
     /**
@@ -148,7 +153,7 @@ const FaceCaptureModel = {
     },
 
     setAiResult: async (id, { status, ai_request_id }) => {
-        const TERMINAL_STATUSES = ['matched', 'mismatch', 'no_face', 'spoof'];
+        const TERMINAL_STATUSES = ['match', 'matched', 'mismatch', 'no_face', 'spoof'];
         const shouldSetMatchedAt = TERMINAL_STATUSES.includes(status);
         const result = await db.query(
             `UPDATE face_captures
@@ -176,7 +181,7 @@ const FaceCaptureModel = {
     cleanupExpired: async (olderThanDays = 30) => {
         await db.query(
             `DELETE FROM face_captures
-             WHERE status IN ('matched', 'mismatch', 'no_face', 'spoof', 'expired', 'ai_error')
+             WHERE status IN ('match', 'matched', 'mismatch', 'no_face', 'spoof', 'expired', 'ai_error')
                AND created_at < NOW() - make_interval(days => $1)`,
             [olderThanDays]
         );
@@ -192,7 +197,7 @@ const FaceCaptureModel = {
             `SELECT * FROM face_captures
              WHERE student_id = $1
                AND type = 'enroll'
-               AND status = 'matched'
+               AND status IN ('match', 'matched')
                AND image_path IS NOT NULL
              ORDER BY created_at DESC LIMIT 1 OFFSET $2`,
             [studentId, offset]

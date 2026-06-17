@@ -6,9 +6,11 @@ if (!CSRF_SECRET) {
     throw new Error('CSRF_SECRET environment variable is required');
 }
 
-const isProd = process.env.NODE_ENV === 'production';
-const cookieSecure = process.env.COOKIE_SECURE === 'true';
-const cookieSameSite = (isProd && process.env.COOKIE_SECURE !== 'false') ? 'none' : 'lax';
+const config = require('./index');
+
+const isProd = config.nodeEnv === 'production';
+const cookieSecure = config.cookie.secure;
+const cookieSameSite = config.cookie.sameSite;
 
 const SKIP_CSRF_PATHS = ['/api/auth/refresh', '/api/auth/logout', '/api/face/upload'];
 

@@ -80,19 +80,33 @@ const AttendanceModel = {
 
     createIfCooldownPassed: async ({ student_id, card_uid, device_id, status }, cooldownMinutes) => {
         const minutes = Math.max(1, parseInt(cooldownMinutes, 10) || 3);
-        const result = await db.query(
-            `INSERT INTO attendance_records (student_id, card_uid, device_id, status)
-             SELECT $1, $2, $3, $4
-             WHERE NOT EXISTS (
-                 SELECT 1 FROM attendance_records
-                 WHERE student_id = $1 
-                 AND check_in_time > NOW() - make_interval(mins => $5)
-                 LIMIT 1
-             )
-             RETURNING *`,
-            [student_id, card_uid, device_id, status || 'present', minutes]
-        );
-        return result.rows.length > 0 ? result.rows[0] : null;
+        const client = await db.getClient();
+        try {
+            await client.query('BEGIN');
+            // Acquire transaction-level advisory lock on student_id to prevent concurrent check-ins
+            await client.query('SELECT pg_advisory_xact_lock($1)', [student_id]);
+            
+            const result = await client.query(
+                `INSERT INTO attendance_records (student_id, card_uid, device_id, status)
+                 SELECT $1, $2, $3, $4
+                 WHERE NOT EXISTS (
+                     SELECT 1 FROM attendance_records
+                     WHERE student_id = $1 
+                     AND check_in_time > NOW() - make_interval(mins => $5)
+                     LIMIT 1
+                 )
+                 RETURNING *`,
+                [student_id, card_uid, device_id, status || 'present', minutes]
+            );
+            
+            await client.query('COMMIT');
+            return result.rows.length > 0 ? result.rows[0] : null;
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
     },
     getStats: async () => {
         const result = await db.query(`

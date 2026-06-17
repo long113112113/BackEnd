@@ -9,8 +9,16 @@ const AttendanceModel = require('../models/attendance.model');
  * @returns {{ valid: boolean, message?: string }}
  */
 const validateDateRange = (startDate, endDate, maxDays = 90) => {
+    if (!startDate && !endDate) return { valid: true };
+    if (!startDate || !endDate) return { valid: false, message: 'Both start_date and end_date are required' };
+
     const start = new Date(startDate);
     const end = new Date(endDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return { valid: false, message: 'Invalid date format' };
+    }
+
     const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
     if (diffDays > maxDays) {
         return { valid: false, message: `Date range must not exceed ${maxDays} days` };
@@ -81,7 +89,7 @@ const AttendanceController = {
                 const page = Math.max(1, parseInt(req.query.page, 10) || 1);
                 const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
 
-                if (start_date && end_date) {
+                if (start_date || end_date) {
                     const rangeCheck = validateDateRange(start_date, end_date);
                     if (!rangeCheck.valid) {
                         return res.status(400).json({ success: false, message: rangeCheck.message });
@@ -170,7 +178,7 @@ const AttendanceController = {
             const className = typeof req.query.class === 'string' ? req.query.class : undefined;
             const exportFormat = format === 'csv' ? 'csv' : 'xlsx';
 
-            if (start_date && end_date) {
+            if (start_date || end_date) {
                 const rangeCheck = validateDateRange(start_date, end_date);
                 if (!rangeCheck.valid) {
                     return res.status(400).json({ success: false, message: rangeCheck.message });
