@@ -21,6 +21,7 @@ const TOPICS = {
     RESULT: `${TOPIC_PREFIX}/attendance/result`,
     STATUS: `${TOPIC_PREFIX}/device/status`,
     FACE_CAPTURE: `${TOPIC_PREFIX}/face/capture`,
+    FACE_STATUS: `${TOPIC_PREFIX}/face/status`,
 };
 
 let client = null;
@@ -40,6 +41,10 @@ const connect = (onMessageCallback) => {
 
         client.subscribe(TOPICS.STATUS, (err) => {
             if (!err) logger.info(`[MQTT] Listening for device status on topic: ${TOPICS.STATUS}`);
+        });
+
+        client.subscribe(`${TOPICS.FACE_STATUS}/+`, (err) => {
+            if (!err) logger.info(`[MQTT] Listening for face status on topic: ${TOPICS.FACE_STATUS}/+`);
         });
     });
 

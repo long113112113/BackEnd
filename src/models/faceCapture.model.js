@@ -41,7 +41,11 @@ const FaceCaptureModel = {
                 ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'attendance',
                 ADD COLUMN IF NOT EXISTS student_id INT REFERENCES students(id),
                 ADD COLUMN IF NOT EXISTS match_score REAL,
-                ADD COLUMN IF NOT EXISTS liveness_score REAL;
+                ADD COLUMN IF NOT EXISTS liveness_score REAL,
+                ADD COLUMN IF NOT EXISTS face_detected BOOLEAN DEFAULT false,
+                ADD COLUMN IF NOT EXISTS device_status VARCHAR(20),
+                ADD COLUMN IF NOT EXISTS device_status_reason VARCHAR(40),
+                ADD COLUMN IF NOT EXISTS device_elapsed_ms INT;
         `;
         await db.query(sql);
     },
@@ -125,6 +129,56 @@ const FaceCaptureModel = {
              WHERE attendance_id = $1
              ORDER BY created_at DESC LIMIT 1`,
             [attendanceId]
+        );
+        return result.rows[0] || null;
+    },
+
+    /**
+     * Records the firmware-side capture state without changing AI lifecycle status.
+     * @param {number} id - Face capture row ID.
+     * @param {object} params - Firmware status metadata.
+     * @returns {Promise<object|null>} The updated capture row or null.
+     */
+    updateDeviceStatus: async (id, { device_status, device_status_reason, device_elapsed_ms, face_score }) => {
+        const result = await db.query(
+            `UPDATE face_captures
+             SET device_status = $2,
+                 device_status_reason = $3,
+                 device_elapsed_ms = $4,
+                 face_score = COALESCE($5, face_score)
+             WHERE id = $1
+             RETURNING *`,
+            [id, device_status, device_status_reason || null, device_elapsed_ms ?? null, face_score ?? null]
+        );
+        return result.rows[0] || null;
+    },
+
+    /**
+     * Marks an active capture as terminal based on a firmware status report.
+     * @param {number} id - Face capture row ID.
+     * @param {object} params - Terminal status and firmware metadata.
+     * @returns {Promise<object|null>} The updated capture row or null when already terminal.
+     */
+    setDeviceTerminal: async (id, { status, device_status, device_status_reason, device_elapsed_ms, face_score }) => {
+        const result = await db.query(
+            `UPDATE face_captures
+             SET status = $2,
+                 device_status = $3,
+                 device_status_reason = $4,
+                 device_elapsed_ms = $5,
+                 face_score = COALESCE($6, face_score)
+             WHERE id = $1
+               AND status = ANY($7::varchar[])
+             RETURNING *`,
+            [
+                id,
+                status,
+                device_status,
+                device_status_reason || null,
+                device_elapsed_ms ?? null,
+                face_score ?? null,
+                ACTIVE_CAPTURE_STATUSES,
+            ]
         );
         return result.rows[0] || null;
     },

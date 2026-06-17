@@ -73,7 +73,10 @@ const start = async () => {
                 return callback(new Error('ESP32 cannot publish to result topic'));
             }
             if (client.isEsp32 && packet.topic.startsWith(`${TOPIC_PREFIX}/face/`)) {
-                return callback(new Error('ESP32 cannot publish to face topics'));
+                const ownFaceStatusTopic = `${TOPIC_PREFIX}/face/status/${client.id}`;
+                if (packet.topic !== ownFaceStatusTopic) {
+                    return callback(new Error('ESP32 can only publish its own face status topic'));
+                }
             }
             callback(null);
         },

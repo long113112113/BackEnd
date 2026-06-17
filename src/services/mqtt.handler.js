@@ -19,6 +19,19 @@ const encryptError = (aesKey, device_id, status, message, extra = {}) => {
     return resultPayload;
 };
 
+const getFaceStatusDeviceId = (topic) => {
+    const prefix = `${mqttConfig.TOPICS.FACE_STATUS}/`;
+    if (!topic.startsWith(prefix)) {
+        return null;
+    }
+
+    const deviceId = topic.slice(prefix.length);
+    if (!deviceId || deviceId.includes('/')) {
+        return null;
+    }
+    return deviceId;
+};
+
 const handleMqttMessage = async (topic, message) => {
     if (topic === mqttConfig.TOPICS.SCAN) {
         let payload = null;
@@ -210,6 +223,38 @@ const handleMqttMessage = async (topic, message) => {
     if (topic === mqttConfig.TOPICS.STATUS) {
         const data = message.toString();
         logger.info(`[MQTT] Device status: ${data}`);
+    }
+
+    const faceStatusDeviceId = getFaceStatusDeviceId(topic);
+    if (faceStatusDeviceId) {
+        let payload;
+        try {
+            payload = JSON.parse(message.toString());
+        } catch (err) {
+            logger.info(`[MQTT] Invalid face status JSON from cam=${faceStatusDeviceId}: ${err.message}`);
+            return;
+        }
+
+        if (payload.device_id && payload.device_id !== faceStatusDeviceId) {
+            logger.info(
+                `[MQTT] Face status device mismatch topic=${faceStatusDeviceId} ` +
+                `payload=${payload.device_id}`
+            );
+            return;
+        }
+
+        try {
+            await FaceService.handleCaptureStatus({
+                deviceId: faceStatusDeviceId,
+                attendanceId: payload.attendance_id,
+                state: payload.state,
+                reason: payload.reason,
+                faceScore: Number(payload.face_score),
+                elapsedMs: Number(payload.elapsed_ms),
+            });
+        } catch (err) {
+            logger.error(`[MQTT] Face status handling failed: ${err.message}`);
+        }
     }
 };
 

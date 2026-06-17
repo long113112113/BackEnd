@@ -12,6 +12,21 @@ const SSE_Broadcast = require('./sse.broadcast');
 const aiClient = require('./ai.grpc.server');
 
 const DEVICE_ID_REGEX = /^[a-zA-Z0-9_-]{1,50}$/;
+const CAMERA_STATUS_STATES = new Set(['accepted', 'busy', 'capturing', 'uploading', 'done', 'failed', 'expired']);
+const CAMERA_STATUS_REASONS = new Set([
+    '',
+    'queue_full',
+    'upload_busy',
+    'timeout',
+    'http_error',
+    'no_image',
+    'stale_trigger',
+]);
+const TERMINAL_CAMERA_STATUS = {
+    busy: 'cam_busy',
+    failed: 'capture_failed',
+    expired: 'expired',
+};
 
 const createHttpError = (statusCode, message) => {
     const err = new Error(message);
@@ -28,6 +43,18 @@ const buildImagePath = (attendanceId, ext = 'jpg') => {
     const dayDir = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
     const ts = `${now.getUTCMonth() + 1}${now.getUTCDate()}_${String(now.getUTCHours()).padStart(2, '0')}${String(now.getUTCMinutes()).padStart(2, '0')}${String(now.getUTCSeconds()).padStart(2, '0')}`;
     return path.join(config.face.storageDir, dayDir, `${attendanceId}_${ts}.${ext}`);
+};
+
+const buildCapturePayload = ({ attendanceId, studentIdHint, token }) => {
+    const now = Date.now();
+    return {
+        attendance_id: attendanceId,
+        student_id_hint: studentIdHint || 0,
+        capture_token: token,
+        ts: now,
+        deadline_ts: now + config.face.captureTimeoutMs,
+        ttl_ms: config.face.captureTimeoutMs,
+    };
 };
 
 const clearTimedOutCameraCaptures = async (camDeviceId) => {
@@ -102,13 +129,7 @@ const triggerFaceCapture = async ({ nfcDeviceId, attendanceId, studentIdHint }) 
     }
 
     const topic = `${mqttConfig.TOPICS.FACE_CAPTURE}/${pair.cam_device_id}`;
-    const payload = {
-        attendance_id: attendanceId,
-        student_id_hint: studentIdHint || 0,
-        capture_token: token,
-        ts: Date.now(),
-        deadline_ts: Date.now() + config.face.captureTimeoutMs,
-    };
+    const payload = buildCapturePayload({ attendanceId, studentIdHint, token });
     mqttConfig.publish(topic, payload);
     logger.info(`[Face] Triggered capture for attendance=${attendanceId} → cam=${pair.cam_device_id}`);
     return capture;
@@ -145,16 +166,130 @@ const triggerFaceEnroll = async ({ studentId, camDeviceId }) => {
     }
 
     const topic = `${mqttConfig.TOPICS.FACE_CAPTURE}/${camDeviceId}`;
-    const payload = {
-        attendance_id: 0, // 0 indicates enrollment to the firmware
-        student_id_hint: studentId,
-        capture_token: token,
-        ts: Date.now(),
-        deadline_ts: Date.now() + config.face.captureTimeoutMs,
-    };
+    const payload = buildCapturePayload({
+        attendanceId: 0,
+        studentIdHint: studentId,
+        token,
+    });
     mqttConfig.publish(topic, payload);
     logger.info(`[Face] Triggered enrollment capture for student=${studentId} → cam=${camDeviceId}`);
     return capture;
+};
+
+const normalizeCameraStatus = ({ state, reason, faceScore, elapsedMs }) => {
+    const normalizedState = typeof state === 'string' ? state.trim() : '';
+    if (!CAMERA_STATUS_STATES.has(normalizedState)) {
+        return null;
+    }
+
+    const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
+    return {
+        state: normalizedState,
+        reason: CAMERA_STATUS_REASONS.has(normalizedReason) ? normalizedReason : 'unknown',
+        faceScore: Number.isFinite(faceScore) ? faceScore : null,
+        elapsedMs: Number.isFinite(elapsedMs) && elapsedMs >= 0 ? Math.floor(elapsedMs) : null,
+    };
+};
+
+const findCaptureForCameraStatus = async ({ deviceId, attendanceId }) => {
+    if (attendanceId > 0) {
+        const capture = await FaceCaptureModel.findLatestByAttendance(attendanceId);
+        if (capture && capture.device_id === deviceId) {
+            return capture;
+        }
+    }
+    return FaceCaptureModel.findActiveByDevice(deviceId);
+};
+
+const broadcastTerminalCameraStatus = async (capture, terminalStatus, meta) => {
+    if (capture.type === 'attendance' && capture.attendance_id) {
+        await AttendanceModel.setFaceStatus(capture.attendance_id, {
+            face_status: terminalStatus,
+            face_capture_id: capture.id,
+        });
+        SSE_Broadcast.broadcast('face-results', 'face-decision', {
+            attendance_id: capture.attendance_id,
+            face_capture_id: capture.id,
+            decision: terminalStatus,
+            reason: meta.reason || undefined,
+            device_status: meta.state,
+            elapsed_ms: meta.elapsedMs,
+        });
+        return;
+    }
+
+    if (capture.type === 'enroll') {
+        SSE_Broadcast.broadcast('face-results', 'enroll-decision', {
+            student_id: capture.student_id,
+            face_capture_id: capture.id,
+            decision: terminalStatus,
+            reason: meta.reason || undefined,
+            device_status: meta.state,
+            elapsed_ms: meta.elapsedMs,
+        });
+    }
+};
+
+/**
+ * Applies camera firmware status reports from MQTT.
+ * @param {object} params - Status report parsed from face/status topic.
+ * @param {string} params.deviceId - Camera device ID from the status topic.
+ * @param {number} params.attendanceId - Attendance ID reported by firmware.
+ * @param {string} params.state - Firmware state name.
+ * @param {string} [params.reason] - Firmware reason code.
+ * @param {number} [params.faceScore] - Embedded detector score.
+ * @param {number} [params.elapsedMs] - Firmware elapsed time.
+ * @returns {Promise<object>} Handling result for logging/tests.
+ */
+const handleCaptureStatus = async ({ deviceId, attendanceId, state, reason, faceScore, elapsedMs }) => {
+    if (!deviceId || !DEVICE_ID_REGEX.test(deviceId)) {
+        return { ok: false, status: 400, message: 'invalid device_id' };
+    }
+
+    const aid = parseInt(attendanceId, 10);
+    if (Number.isNaN(aid) || aid < 0) {
+        return { ok: false, status: 400, message: 'invalid attendance_id' };
+    }
+
+    const meta = normalizeCameraStatus({ state, reason, faceScore, elapsedMs });
+    if (!meta) {
+        return { ok: false, status: 400, message: 'invalid camera status' };
+    }
+
+    const capture = await findCaptureForCameraStatus({ deviceId, attendanceId: aid });
+    if (!capture || capture.device_id !== deviceId) {
+        logger.warn(`[Face] Status ignored; no matching capture cam=${deviceId} attendance=${aid} state=${meta.state}`);
+        return { ok: false, status: 404, message: 'capture not found' };
+    }
+
+    const updateParams = {
+        device_status: meta.state,
+        device_status_reason: meta.reason,
+        device_elapsed_ms: meta.elapsedMs,
+        face_score: meta.faceScore,
+    };
+    const terminalStatus = TERMINAL_CAMERA_STATUS[meta.state];
+    let updated = null;
+
+    if (terminalStatus) {
+        updated = await FaceCaptureModel.setDeviceTerminal(capture.id, {
+            status: terminalStatus,
+            ...updateParams,
+        });
+        if (updated) {
+            await broadcastTerminalCameraStatus(capture, terminalStatus, meta);
+        }
+    }
+
+    if (!updated) {
+        updated = await FaceCaptureModel.updateDeviceStatus(capture.id, updateParams);
+    }
+
+    logger.info(
+        `[Face] Camera status cam=${deviceId} attendance=${aid} ` +
+        `capture=${capture.id} state=${meta.state} reason=${meta.reason || '-'}`
+    );
+    return { ok: true, capture_id: capture.id, state: meta.state, terminal_status: terminalStatus || null };
 };
 
 const handleFaceUpload = async ({ deviceId, attendanceId, captureToken, imageBuf, faceBox, faceScore, faceDetected }) => {
@@ -358,4 +493,11 @@ const getByAttendance = async (attendanceId) => {
     return FaceCaptureModel.findLatestByAttendance(attendanceId);
 };
 
-module.exports = { triggerFaceCapture, triggerFaceEnroll, handleFaceUpload, onAiResult, getByAttendance };
+module.exports = {
+    triggerFaceCapture,
+    triggerFaceEnroll,
+    handleFaceUpload,
+    handleCaptureStatus,
+    onAiResult,
+    getByAttendance,
+};

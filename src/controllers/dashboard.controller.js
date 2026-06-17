@@ -10,7 +10,7 @@ const MAX_DATE_RANGE_DAYS = 90;
 const DASHBOARD_CHANNEL_PREFIX = 'dashboard-chart:';
 const MAX_POLLERS = 10;
 const MAX_CHANNELS_PER_USER = 2;
-const MAX_CONNECTIONS_PER_USER_PER_CHANNEL = 10;
+const MAX_CONNECTIONS_PER_USER_PER_CHANNEL = 3;
 
 const validateDateRange = (startDate, endDate, maxDays = MAX_DATE_RANGE_DAYS) => {
     if (!startDate && !endDate) return { valid: true };
