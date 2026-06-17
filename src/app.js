@@ -35,11 +35,15 @@ if (config.nodeEnv === 'development') {
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
+if (process.env.NODE_ENV !== 'test') {
+    app.use(ensureSessionId);
+}
+
 app.get('/api/csrf-token', (req, res) => {
     res.json({ csrfToken: generateCsrfToken(req, res) });
 });
+
 if (process.env.NODE_ENV !== 'test') {
-    app.use(ensureSessionId);
     app.use(doubleCsrfProtection);
 }
 
