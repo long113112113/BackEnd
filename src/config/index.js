@@ -75,8 +75,8 @@ module.exports = {
     face: {
         storageDir: process.env.FACE_STORAGE_DIR || './storage/face_captures',
         strictMode: process.env.FACE_STRICT_MODE === 'true',
-        captureTimeoutMs: Math.max(1000, parseInt(process.env.FACE_CAPTURE_TIMEOUT_MS, 10) || 30000),
-        tokenTtlSeconds: Math.max(5, parseInt(process.env.FACE_TOKEN_TTL_SECONDS, 10) || 30),
+        captureTimeoutMs: Math.max(1000, parseInt(process.env.FACE_CAPTURE_TIMEOUT_MS, 10) || 90000),
+        tokenTtlSeconds: Math.max(5, parseInt(process.env.FACE_TOKEN_TTL_SECONDS, 10) || 90),
     },
     ai: {
         grpcUrl: process.env.AI_GRPC_URL || 'localhost:50051',

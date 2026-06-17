@@ -27,6 +27,7 @@ const TERMINAL_CAMERA_STATUS = {
     failed: 'capture_failed',
     expired: 'expired',
 };
+const ACCEPTED_UPLOAD_CAPTURE_STATUS = 'pending';
 
 const createHttpError = (statusCode, message) => {
     const err = new Error(message);
@@ -316,6 +317,9 @@ const handleFaceUpload = async ({ deviceId, attendanceId, captureToken, imageBuf
             return { ok: false, status: 400, message: 'attendance_id mismatch' };
         }
     }
+    if (capture.status !== ACCEPTED_UPLOAD_CAPTURE_STATUS) {
+        return { ok: false, status: 409, message: `capture_token no longer active (${capture.status})` };
+    }
     if (capture.used_at) {
         return { ok: false, status: 409, message: 'capture_token already used' };
     }
@@ -323,6 +327,17 @@ const handleFaceUpload = async ({ deviceId, attendanceId, captureToken, imageBuf
     const ageMs = Date.now() - new Date(capture.created_at).getTime();
     if (ageMs > config.face.tokenTtlSeconds * 1000) {
         await FaceCaptureModel.setExpired(capture.id);
+        if (capture.type === 'attendance') {
+            await AttendanceModel.setFaceStatus(aid, {
+                face_status: 'expired',
+                face_capture_id: capture.id,
+            });
+            SSE_Broadcast.broadcast('face-results', 'face-decision', {
+                attendance_id: aid,
+                face_capture_id: capture.id,
+                decision: 'expired',
+            });
+        }
         return { ok: false, status: 410, message: 'capture_token expired' };
     }
 
