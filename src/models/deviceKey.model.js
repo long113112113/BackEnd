@@ -76,12 +76,12 @@ const DeviceKeyModel = {
         );
     },
 
-    updateLastSeqAtomic: async (deviceId, seq) => {
+    updateLastSeqAtomic: async (deviceId, seq, allowReset = false, expectedLastSeq = null) => {
         const result = await db.query(
             `UPDATE device_keys
              SET last_seq = $2, updated_at = CURRENT_TIMESTAMP
-             WHERE device_id = $1 AND $2 > last_seq`,
-            [deviceId, seq]
+             WHERE device_id = $1 AND ($2 > last_seq OR ($3 = true AND last_seq = $4))`,
+            [deviceId, seq, allowReset, expectedLastSeq]
         );
         return result.rowCount > 0;
     },

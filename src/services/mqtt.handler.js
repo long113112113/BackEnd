@@ -120,7 +120,12 @@ const handleMqttMessage = async (topic, message) => {
                 logger.info(`[MQTT] ⚠ NVS RESET DETECTED device_id=${device_id} seq=${seq} last_seq was ${device.last_seq} — auto-recovered`);
             }
 
-            const seqUpdated = await DeviceKeyModel.updateLastSeqAtomic(device_id, seq);
+            const seqUpdated = await DeviceKeyModel.updateLastSeqAtomic(
+                device_id,
+                seq,
+                !!seqCheck.nvs_reset,
+                device.last_seq
+            );
             if (!seqUpdated) {
                 logger.info(`[MQTT] Seq race condition device_id=${device_id} seq=${seq} last_seq=${device.last_seq}`);
                 const errPayload = encryptError(aesKey, device_id, 'error', 'Seq race condition', { card_uid });
