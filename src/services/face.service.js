@@ -13,6 +13,12 @@ const aiClient = require('./ai.grpc.server');
 
 const DEVICE_ID_REGEX = /^[a-zA-Z0-9_-]{1,50}$/;
 
+const createHttpError = (statusCode, message) => {
+    const err = new Error(message);
+    err.statusCode = statusCode;
+    return err;
+};
+
 const ensureDir = (dir) => {
     fs.mkdirSync(dir, { recursive: true });
 };
@@ -24,6 +30,29 @@ const buildImagePath = (attendanceId, ext = 'jpg') => {
     return path.join(config.face.storageDir, dayDir, `${attendanceId}_${ts}.${ext}`);
 };
 
+const clearTimedOutCameraCaptures = async (camDeviceId) => {
+    const expired = await FaceCaptureModel.expireStaleActiveByDevice(
+        camDeviceId,
+        config.face.captureTimeoutMs
+    );
+    if (expired > 0) {
+        logger.warn(`[Face] Expired stale active captures for cam=${camDeviceId}, count=${expired}`);
+    }
+};
+
+const findCameraBusyCapture = async (camDeviceId) => {
+    await clearTimedOutCameraCaptures(camDeviceId);
+    return FaceCaptureModel.findActiveByDevice(camDeviceId);
+};
+
+/**
+ * Triggers an attendance face capture unless the paired camera is busy.
+ * @param {object} params - Trigger parameters.
+ * @param {string} params.nfcDeviceId - NFC device that created the attendance row.
+ * @param {number} params.attendanceId - Attendance row ID to update.
+ * @param {number} [params.studentIdHint] - Student PK sent to the camera/AI path.
+ * @returns {Promise<object|null>} The created capture row or null when skipped.
+ */
 const triggerFaceCapture = async ({ nfcDeviceId, attendanceId, studentIdHint }) => {
     const pair = await DevicePairModel.findByNfc(nfcDeviceId);
     if (!pair) {
@@ -36,6 +65,21 @@ const triggerFaceCapture = async ({ nfcDeviceId, attendanceId, studentIdHint }) 
         logger.info(`[Face] Invalid cam_device_id=${pair.cam_device_id}`);
         await AttendanceModel.setFaceStatus(attendanceId, { face_status: 'no_cam' });
         SSE_Broadcast.broadcast('face-results', 'face-decision', { attendance_id: attendanceId, decision: 'no_cam' });
+        return null;
+    }
+
+    const busyCapture = await findCameraBusyCapture(pair.cam_device_id);
+    if (busyCapture) {
+        logger.warn(
+            `[Face] Camera busy cam=${pair.cam_device_id} attendance=${attendanceId} ` +
+            `active_capture=${busyCapture.id} active_status=${busyCapture.status}`
+        );
+        await AttendanceModel.setFaceStatus(attendanceId, { face_status: 'cam_busy' });
+        SSE_Broadcast.broadcast('face-results', 'face-decision', {
+            attendance_id: attendanceId,
+            student_id: studentIdHint,
+            decision: 'cam_busy',
+        });
         return null;
     }
 
@@ -59,7 +103,24 @@ const triggerFaceCapture = async ({ nfcDeviceId, attendanceId, studentIdHint }) 
     return capture;
 };
 
+/**
+ * Triggers a face enrollment capture unless the selected camera is busy.
+ * @param {object} params - Trigger parameters.
+ * @param {number} params.studentId - Student PK that will receive the embedding.
+ * @param {string} params.camDeviceId - Camera device that should capture the face.
+ * @returns {Promise<object>} The created enrollment capture row.
+ * @throws {Error} 409 when the camera already has an active capture.
+ */
 const triggerFaceEnroll = async ({ studentId, camDeviceId }) => {
+    const busyCapture = await findCameraBusyCapture(camDeviceId);
+    if (busyCapture) {
+        logger.warn(
+            `[Face] Camera busy cam=${camDeviceId} enroll_student=${studentId} ` +
+            `active_capture=${busyCapture.id} active_status=${busyCapture.status}`
+        );
+        throw createHttpError(409, 'Camera is busy processing another capture');
+    }
+
     const token = crypto.randomBytes(32).toString('hex');
     const capture = await FaceCaptureModel.createEnrollmentPending({
         student_id: studentId,

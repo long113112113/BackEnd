@@ -1,5 +1,7 @@
 const db = require('../config/db');
 
+const ACTIVE_CAPTURE_STATUSES = ['pending', 'ai_processing'];
+
 const FaceCaptureModel = {
     createTable: async () => {
         const sql = `
@@ -24,6 +26,9 @@ const FaceCaptureModel = {
                 ON face_captures(capture_token);
             CREATE INDEX IF NOT EXISTS idx_face_captures_status
                 ON face_captures(status);
+            CREATE INDEX IF NOT EXISTS idx_face_captures_device_active
+                ON face_captures(device_id, created_at DESC)
+                WHERE status IN ('pending', 'ai_processing');
 
             ALTER TABLE attendance_records
                 ADD COLUMN IF NOT EXISTS face_status     VARCHAR(20) DEFAULT 'pending',
@@ -54,6 +59,41 @@ const FaceCaptureModel = {
             [student_id, device_id, capture_token]
         );
         return result.rows[0];
+    },
+
+    /**
+     * Finds the newest capture that still owns the camera device.
+     * @param {string} deviceId - The camera device ID.
+     * @returns {Promise<object|null>} The active capture row or null.
+     */
+    findActiveByDevice: async (deviceId) => {
+        const result = await db.query(
+            `SELECT * FROM face_captures
+             WHERE device_id = $1
+               AND status = ANY($2::varchar[])
+             ORDER BY created_at DESC
+             LIMIT 1`,
+            [deviceId, ACTIVE_CAPTURE_STATUSES]
+        );
+        return result.rows[0] || null;
+    },
+
+    /**
+     * Expires camera-owning captures that outlived the firmware capture window.
+     * @param {string} deviceId - The camera device ID.
+     * @param {number} timeoutMs - Capture timeout in milliseconds.
+     * @returns {Promise<number>} Number of rows marked expired.
+     */
+    expireStaleActiveByDevice: async (deviceId, timeoutMs) => {
+        const result = await db.query(
+            `UPDATE face_captures
+             SET status = 'expired'
+             WHERE device_id = $1
+               AND status = ANY($2::varchar[])
+               AND created_at < NOW() - ($3::int * INTERVAL '1 millisecond')`,
+            [deviceId, ACTIVE_CAPTURE_STATUSES, timeoutMs]
+        );
+        return result.rowCount;
     },
 
     findByToken: async (token) => {
