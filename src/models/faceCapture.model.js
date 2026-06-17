@@ -179,10 +179,22 @@ const FaceCaptureModel = {
     },
 
     cleanupExpired: async (olderThanDays = 30) => {
+        const queryCondition = `
+            status IN ('match', 'matched', 'mismatch', 'no_face', 'spoof', 'expired', 'ai_error')
+            AND created_at < NOW() - make_interval(days => $1)
+        `;
+
         await db.query(
-            `DELETE FROM face_captures
-             WHERE status IN ('match', 'matched', 'mismatch', 'no_face', 'spoof', 'expired', 'ai_error')
-               AND created_at < NOW() - make_interval(days => $1)`,
+            `UPDATE attendance_records
+             SET face_capture_id = NULL
+             WHERE face_capture_id IN (
+                 SELECT id FROM face_captures WHERE ${queryCondition}
+             )`,
+            [olderThanDays]
+        );
+
+        await db.query(
+            `DELETE FROM face_captures WHERE ${queryCondition}`,
             [olderThanDays]
         );
     },

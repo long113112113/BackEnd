@@ -153,6 +153,12 @@ const StudentController = {
             }
             res.json({ success: true, data: student });
         } catch (err) {
+            if (err.code === '23505') {
+                return res.status(409).json({
+                    success: false,
+                    message: 'Student ID or card UID already exists',
+                });
+            }
             next(err);
         }
     },
@@ -185,8 +191,14 @@ const StudentController = {
                 return res.status(400).json({ success: false, message: 'Invalid student ID' });
             }
             const { cam_device_id } = req.body;
-            if (!cam_device_id || typeof cam_device_id !== 'string') {
-                return res.status(400).json({ success: false, message: 'cam_device_id is required' });
+            if (!cam_device_id || typeof cam_device_id !== 'string' || !/^[a-zA-Z0-9_-]{1,50}$/.test(cam_device_id)) {
+                return res.status(400).json({ success: false, message: 'Invalid cam_device_id format' });
+            }
+
+            const DeviceKeyModel = require('../models/deviceKey.model');
+            const camDevice = await DeviceKeyModel.findByDeviceId(cam_device_id);
+            if (!camDevice || camDevice.role !== 'cam') {
+                return res.status(404).json({ success: false, message: 'Camera device not found or invalid role' });
             }
 
             const student = await StudentModel.findById(studentId);

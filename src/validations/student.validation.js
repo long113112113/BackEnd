@@ -43,7 +43,7 @@ exports.updateStudent = [
     param('id')
         .isInt({ min: 1 }).withMessage('Student ID must be a positive integer'),
     body('full_name')
-        .optional({ nullable: true })
+        .optional()
         .isString().withMessage('Full name must be a string')
         .trim()
         .notEmpty().withMessage('Full name cannot be empty')

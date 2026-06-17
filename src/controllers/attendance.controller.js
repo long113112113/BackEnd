@@ -224,9 +224,20 @@ const AttendanceController = {
 
             const classGroups = groupByClass(records);
             const summaryData = [];
+            const usedSheetNames = new Set(['summary']);
 
             for (const [classNameKey, classRecords] of classGroups) {
-                const sheetName = sanitizeSheetName(classNameKey);
+                let baseSheetName = sanitizeSheetName(classNameKey);
+                let sheetName = baseSheetName;
+                let counter = 1;
+
+                while (usedSheetNames.has(sheetName.toLowerCase())) {
+                    const suffix = `(${counter})`;
+                    sheetName = baseSheetName.substring(0, 31 - suffix.length) + suffix;
+                    counter++;
+                }
+                usedSheetNames.add(sheetName.toLowerCase());
+
                 const worksheet = workbook.addWorksheet(sheetName);
 
                 worksheet.columns = [
