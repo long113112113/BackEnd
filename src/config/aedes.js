@@ -44,8 +44,12 @@ let wsServer = null;
 const timingSafeEqual = (a, b) => {
     const bufA = Buffer.from(String(a));
     const bufB = Buffer.from(String(b));
-    if (bufA.length !== bufB.length) return false;
-    return crypto.timingSafeEqual(bufA, bufB);
+
+    // Hash inputs first to guarantee equal lengths, preventing early-return timing leaks
+    const hashA = crypto.createHash('sha256').update(bufA).digest();
+    const hashB = crypto.createHash('sha256').update(bufB).digest();
+
+    return crypto.timingSafeEqual(hashA, hashB);
 };
 
 const start = async () => {
