@@ -1,0 +1,4 @@
+## 2025-02-28 - [Timing Attack in crypto.timingSafeEqual usage]
+**Vulnerability:** A length-check timing leak was found in `timingSafeEqual` in `src/config/aedes.js` (`if (bufA.length !== bufB.length) return false;`), allowing attackers to guess lengths of the MQTT username and password. Furthermore, directly passing `String(a)` could have crashed the app when comparing strings of unequal length.
+**Learning:** Checking lengths manually before calling `crypto.timingSafeEqual` negates the timing-safe guarantees of the comparison, leaking length info.
+**Prevention:** Always hash the inputs to a fixed-length size (e.g., using SHA-256) before passing them to `crypto.timingSafeEqual`. This prevents both the timing leak regarding string lengths, and avoids the application crashing due to `crypto.timingSafeEqual` throwing exceptions when inputs have different lengths.
