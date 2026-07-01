@@ -1,0 +1,4 @@
+## 2023-10-27 - [Security] Fix CWE-208 Timing Leak in MQTT Auth
+**Vulnerability:** A `timingSafeEqual` utility function in `src/config/aedes.js` performed an early return if the lengths of the two buffers did not match (`if (bufA.length !== bufB.length) return false;`), defeating the purpose of `crypto.timingSafeEqual` by leaking the length of the expected credential via timing discrepancies.
+**Learning:** Developers sometimes misunderstand `crypto.timingSafeEqual`, which requires buffers of equal length to function without throwing an error. They attempt to bypass the length-mismatch error by adding an early-return check, inadvertently introducing the very timing vulnerability (CWE-208) they were trying to prevent.
+**Prevention:** Always hash both inputs (e.g., using SHA-256) before passing them to `crypto.timingSafeEqual`. Hashing ensures both buffers have identical, fixed lengths, preventing unhandled exceptions and entirely eliminating the timing leak.
